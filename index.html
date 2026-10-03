@@ -1,1 +1,1100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
 
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <title>
+    Scanner Patrimonial - ACADEPOL
+  </title>
+
+
+  <script
+    src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
+  ></script>
+
+
+  <style>
+
+    :root {
+      --fundo: #090a0c;
+      --painel: #121418;
+      --borda: #2c2f35;
+
+      --dourado: #c7a64b;
+      --dourado2: #e0bd59;
+
+      --texto: #f1f1f1;
+      --texto2: #aeb1b7;
+
+      --verde: #58bf76;
+      --vermelho: #e26963;
+    }
+
+
+    * {
+      box-sizing:
+        border-box;
+    }
+
+
+    html,
+    body {
+      margin: 0;
+
+      min-height:
+        100%;
+
+      background:
+        var(--fundo);
+
+      color:
+        var(--texto);
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+    }
+
+
+    body {
+      min-height:
+        100vh;
+    }
+
+
+    header {
+      background:
+        #101115;
+
+      border-bottom:
+        1px solid
+        var(--borda);
+
+      padding:
+        18px;
+    }
+
+
+    .cabecalho {
+      max-width:
+        800px;
+
+      margin:
+        auto;
+    }
+
+
+    .titulo {
+      color:
+        var(--dourado2);
+
+      font-size:
+        21px;
+
+      font-weight:
+        800;
+    }
+
+
+    .subtitulo {
+      color:
+        var(--texto2);
+
+      font-size:
+        12px;
+
+      margin-top:
+        4px;
+    }
+
+
+    main {
+      max-width:
+        800px;
+
+      margin:
+        auto;
+
+      padding:
+        14px;
+    }
+
+
+    .painel {
+      background:
+        var(--painel);
+
+      border:
+        1px solid
+        var(--borda);
+
+      border-radius:
+        14px;
+
+      padding:
+        14px;
+
+      margin-bottom:
+        14px;
+    }
+
+
+    .status {
+      padding:
+        11px 12px;
+
+      border-radius:
+        9px;
+
+      font-size:
+        13px;
+
+      background:
+        #17191e;
+
+      color:
+        var(--texto2);
+
+      margin-bottom:
+        12px;
+    }
+
+
+    .status.ok {
+      background:
+        #102118;
+
+      color:
+        #8bddaa;
+
+      border:
+        1px solid
+        #285d3b;
+    }
+
+
+    .status.erro {
+      background:
+        #291111;
+
+      color:
+        #ffaaa5;
+
+      border:
+        1px solid
+        #692929;
+    }
+
+
+    #reader {
+      width:
+        100%;
+
+      overflow:
+        hidden;
+
+      border-radius:
+        12px;
+
+      background:
+        #000;
+    }
+
+
+    #reader video {
+      width:
+        100% !important;
+
+      max-height:
+        70vh;
+
+      object-fit:
+        cover;
+    }
+
+
+    .botoes {
+      display:
+        flex;
+
+      gap:
+        8px;
+
+      flex-wrap:
+        wrap;
+
+      margin-top:
+        12px;
+    }
+
+
+    button {
+      flex:
+        1 1 160px;
+
+      min-height:
+        46px;
+
+      border:
+        0;
+
+      border-radius:
+        10px;
+
+      font-weight:
+        700;
+
+      cursor:
+        pointer;
+    }
+
+
+    .principal {
+      background:
+        var(--dourado);
+
+      color:
+        #111;
+    }
+
+
+    .secundario {
+      background:
+        #292c32;
+
+      color:
+        var(--texto);
+
+      border:
+        1px solid
+        #3c4048;
+    }
+
+
+    .contador {
+      display:
+        grid;
+
+      grid-template-columns:
+        1fr 1fr;
+
+      gap:
+        10px;
+
+      margin-bottom:
+        12px;
+    }
+
+
+    .card {
+      background:
+        #181a1f;
+
+      border:
+        1px solid
+        var(--borda);
+
+      border-radius:
+        10px;
+
+      padding:
+        12px;
+    }
+
+
+    .cardTitulo {
+      color:
+        var(--texto2);
+
+      font-size:
+        11px;
+
+      font-weight:
+        bold;
+    }
+
+
+    .cardValor {
+      color:
+        var(--dourado2);
+
+      font-size:
+        25px;
+
+      font-weight:
+        bold;
+
+      margin-top:
+        5px;
+    }
+
+
+    .ultimo {
+      color:
+        var(--dourado2);
+
+      font-weight:
+        bold;
+
+      word-break:
+        break-all;
+    }
+
+
+    .lista {
+      max-height:
+        220px;
+
+      overflow-y:
+        auto;
+
+      margin-top:
+        10px;
+    }
+
+
+    .item {
+      padding:
+        9px 6px;
+
+      border-bottom:
+        1px solid
+        #272a30;
+
+      font-size:
+        13px;
+    }
+
+
+    .ajuda {
+      color:
+        var(--texto2);
+
+      font-size:
+        12px;
+
+      line-height:
+        1.5;
+    }
+
+
+    @media (
+      max-width: 500px
+    ) {
+
+      main {
+        padding:
+          10px;
+      }
+
+
+      .contador {
+        grid-template-columns:
+          1fr 1fr;
+      }
+
+
+      button {
+        flex:
+          1 1 100%;
+      }
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+<header>
+
+  <div class="cabecalho">
+
+    <div class="titulo">
+      SCANNER PATRIMONIAL
+    </div>
+
+    <div class="subtitulo">
+      ACADEPOL · PCSC
+    </div>
+
+  </div>
+
+</header>
+
+
+<main>
+
+  <section class="painel">
+
+    <div
+      id="status"
+      class="status"
+    >
+      Preparando câmera...
+    </div>
+
+
+    <div
+      id="reader"
+    ></div>
+
+
+    <div class="botoes">
+
+      <button
+        id="btnIniciar"
+        class="principal"
+        onclick="iniciarScanner()"
+      >
+        INICIAR CÂMERA
+      </button>
+
+
+      <button
+        id="btnParar"
+        class="secundario"
+        onclick="pararScanner()"
+      >
+        PARAR CÂMERA
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <section class="painel">
+
+    <div class="contador">
+
+      <div class="card">
+
+        <div class="cardTitulo">
+          LIDOS
+        </div>
+
+        <div
+          id="quantidade"
+          class="cardValor"
+        >
+          0
+        </div>
+
+      </div>
+
+
+      <div class="card">
+
+        <div class="cardTitulo">
+          ÚLTIMO
+        </div>
+
+        <div
+          id="ultimo"
+          class="cardValor"
+          style="font-size:18px"
+        >
+          -
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="ajuda">
+      Aponte a câmera para a etiqueta.
+      Quando o código for identificado ele será enviado
+      automaticamente para a Consulta Patrimonial.
+      Você pode continuar apontando para o próximo patrimônio.
+    </div>
+
+
+    <div
+      id="lista"
+      class="lista"
+    ></div>
+
+  </section>
+
+</main>
+
+
+<script>
+
+let leitor = null;
+
+let scannerRodando =
+  false;
+
+let returnOrigin =
+  '';
+
+let ultimoNormalizado =
+  '';
+
+let ultimoHorario =
+  0;
+
+const lidos =
+  new Set();
+
+
+/************************************************************
+ * INICIALIZAÇÃO
+ ************************************************************/
+window.addEventListener(
+  'load',
+  function() {
+
+    const parametros =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    returnOrigin =
+      String(
+        parametros.get(
+          'returnOrigin'
+        ) || ''
+      ).trim();
+
+    /*
+     * Tenta iniciar automaticamente.
+     *
+     * Se o navegador exigir interação,
+     * o usuário ainda tem o botão
+     * INICIAR CÂMERA.
+     */
+    setTimeout(
+      function() {
+        iniciarScanner();
+      },
+      300
+    );
+
+  }
+);
+
+
+/************************************************************
+ * INICIAR
+ ************************************************************/
+async function iniciarScanner() {
+
+  if (scannerRodando) {
+    return;
+  }
+
+  if (
+    typeof Html5Qrcode ===
+      'undefined'
+  ) {
+    definirStatus(
+      'A biblioteca do scanner não foi carregada.',
+      true
+    );
+
+    return;
+  }
+
+  definirStatus(
+    'Solicitando acesso à câmera...',
+    false
+  );
+
+  try {
+
+    const formatos = [
+      Html5QrcodeSupportedFormats.QR_CODE,
+
+      Html5QrcodeSupportedFormats.CODABAR,
+
+      Html5QrcodeSupportedFormats.CODE_39,
+
+      Html5QrcodeSupportedFormats.CODE_93,
+
+      Html5QrcodeSupportedFormats.CODE_128,
+
+      Html5QrcodeSupportedFormats.ITF,
+
+      Html5QrcodeSupportedFormats.EAN_13,
+
+      Html5QrcodeSupportedFormats.EAN_8,
+
+      Html5QrcodeSupportedFormats.UPC_A,
+
+      Html5QrcodeSupportedFormats.UPC_E
+    ];
+
+
+    leitor =
+      new Html5Qrcode(
+        'reader',
+        {
+          formatsToSupport:
+            formatos,
+
+          /*
+           * Força o decodificador ZXing
+           * da biblioteca em vez de depender
+           * do BarcodeDetector nativo.
+           */
+          useBarCodeDetectorIfSupported:
+            false
+        }
+      );
+
+
+    await leitor.start(
+      {
+        facingMode:
+          'environment'
+      },
+
+      {
+        fps: 10,
+
+        /*
+         * Sem qrbox:
+         * usa uma área maior da câmera,
+         * ajudando tanto códigos 1D largos
+         * quanto QR Code.
+         */
+        disableFlip:
+          false
+      },
+
+      function(
+        decodedText,
+        decodedResult
+      ) {
+        processarLeitura(
+          decodedText
+        );
+      },
+
+      function(
+        errorMessage
+      ) {
+        /*
+         * É normal não encontrar código
+         * em vários quadros consecutivos.
+         * Não mostra erro na tela.
+         */
+      }
+    );
+
+
+    scannerRodando =
+      true;
+
+    definirStatus(
+      'Câmera ativa. Aponte para o código.',
+      false,
+      true
+    );
+
+  } catch (erro) {
+
+    scannerRodando =
+      false;
+
+    leitor =
+      null;
+
+    const nome =
+      erro &&
+      erro.name
+        ? erro.name
+        : '';
+
+    const mensagem =
+      erro &&
+      erro.message
+        ? erro.message
+        : String(
+            erro || ''
+          );
+
+
+    if (
+      nome ===
+        'NotAllowedError' ||
+      mensagem
+        .toLowerCase()
+        .includes(
+          'permission'
+        )
+    ) {
+      definirStatus(
+        'Permissão da câmera não foi concedida. Deixe este site configurado como "Perguntar" e autorize quando abrir.',
+        true
+      );
+
+      return;
+    }
+
+
+    if (
+      nome ===
+      'NotFoundError'
+    ) {
+      definirStatus(
+        'Nenhuma câmera foi encontrada neste aparelho.',
+        true
+      );
+
+      return;
+    }
+
+
+    if (
+      nome ===
+      'NotReadableError'
+    ) {
+      definirStatus(
+        'A câmera está ocupada por outro aplicativo.',
+        true
+      );
+
+      return;
+    }
+
+
+    definirStatus(
+      'Não foi possível iniciar a câmera: ' +
+      mensagem,
+      true
+    );
+  }
+}
+
+
+/************************************************************
+ * PARAR
+ ************************************************************/
+async function pararScanner() {
+
+  if (
+    !leitor ||
+    !scannerRodando
+  ) {
+    return;
+  }
+
+  try {
+    await leitor.stop();
+  } catch (e) {}
+
+  try {
+    leitor.clear();
+  } catch (e) {}
+
+  scannerRodando =
+    false;
+
+  leitor =
+    null;
+
+  definirStatus(
+    'Câmera parada.',
+    false
+  );
+}
+
+
+/************************************************************
+ * LEITURA
+ ************************************************************/
+function processarLeitura(
+  valor
+) {
+  const texto =
+    String(
+      valor || ''
+    ).trim();
+
+  if (!texto) {
+    return;
+  }
+
+  /*
+   * Patrimônio precisa conter apenas:
+   * números
+   * ponto
+   * hífen
+   * espaços
+   *
+   * Não extrai números de URLs ou textos.
+   */
+  if (
+    !/^[0-9.\-\s]+$/.test(
+      texto
+    )
+  ) {
+    definirStatus(
+      'Código lido, mas o conteúdo não é um patrimônio válido: ' +
+      texto,
+      true
+    );
+
+    return;
+  }
+
+  const normalizado =
+    texto.replace(
+      /\D/g,
+      ''
+    );
+
+  if (!normalizado) {
+    return;
+  }
+
+  const agora =
+    Date.now();
+
+  /*
+   * Evita que o mesmo código seja
+   * disparado dezenas de vezes enquanto
+   * a câmera continua apontada para ele.
+   */
+  if (
+    normalizado ===
+      ultimoNormalizado &&
+    agora -
+      ultimoHorario <
+      2500
+  ) {
+    return;
+  }
+
+  ultimoNormalizado =
+    normalizado;
+
+  ultimoHorario =
+    agora;
+
+
+  if (
+    lidos.has(
+      normalizado
+    )
+  ) {
+    definirStatus(
+      'Patrimônio ' +
+      normalizado +
+      ' já foi lido nesta sessão.',
+      false
+    );
+
+    return;
+  }
+
+
+  lidos.add(
+    normalizado
+  );
+
+
+  document
+    .getElementById(
+      'quantidade'
+    )
+    .textContent =
+      String(
+        lidos.size
+      );
+
+
+  document
+    .getElementById(
+      'ultimo'
+    )
+    .textContent =
+      normalizado;
+
+
+  const item =
+    document.createElement(
+      'div'
+    );
+
+  item.className =
+    'item';
+
+  item.textContent =
+    normalizado;
+
+  document
+    .getElementById(
+      'lista'
+    )
+    .prepend(item);
+
+
+  definirStatus(
+    'Patrimônio ' +
+    normalizado +
+    ' lido ✓',
+    false,
+    true
+  );
+
+
+  if (
+    navigator.vibrate
+  ) {
+    navigator.vibrate(
+      90
+    );
+  }
+
+
+  tocarBip();
+
+
+  /*
+   * Envia automaticamente
+   * para a janela Consulta Patrimonial.
+   */
+  if (
+    window.opener &&
+    returnOrigin
+  ) {
+    try {
+
+      window.opener.postMessage(
+        {
+          tipo:
+            'ACADEPOL_PATRIMONIO',
+
+          valor:
+            normalizado
+        },
+        returnOrigin
+      );
+
+    } catch (e) {}
+  }
+}
+
+
+/************************************************************
+ * BIP
+ ************************************************************/
+function tocarBip() {
+
+  try {
+
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (!AudioContext) {
+      return;
+    }
+
+    const contexto =
+      new AudioContext();
+
+    const oscilador =
+      contexto.createOscillator();
+
+    const ganho =
+      contexto.createGain();
+
+    oscilador
+      .connect(
+        ganho
+      );
+
+    ganho
+      .connect(
+        contexto.destination
+      );
+
+    oscilador.frequency.value =
+      900;
+
+    ganho.gain.value =
+      0.05;
+
+    oscilador.start();
+
+    oscilador.stop(
+      contexto.currentTime +
+      0.08
+    );
+
+  } catch (e) {}
+}
+
+
+/************************************************************
+ * STATUS
+ ************************************************************/
+function definirStatus(
+  texto,
+  erro,
+  sucesso
+) {
+  const el =
+    document.getElementById(
+      'status'
+    );
+
+  el.textContent =
+    texto;
+
+  el.className =
+    'status';
+
+  if (erro) {
+    el.classList.add(
+      'erro'
+    );
+
+  } else if (sucesso) {
+    el.classList.add(
+      'ok'
+    );
+  }
+}
+
+
+/************************************************************
+ * ENCERRAR
+ ************************************************************/
+window.addEventListener(
+  'beforeunload',
+  function() {
+
+    if (
+      leitor &&
+      scannerRodando
+    ) {
+      try {
+        leitor.stop();
+      } catch (e) {}
+    }
+
+  }
+);
+
+</script>
+
+</body>
+
+</html>
