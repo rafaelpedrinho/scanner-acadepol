@@ -139,6 +139,39 @@
       color:var(--texto);
       border:1px solid #3c4048;
     }
+    .concluir-wrap {
+      position:sticky;
+      bottom:0;
+      z-index:20;
+      padding-top:12px;
+      padding-bottom:max(8px, env(safe-area-inset-bottom));
+      background:linear-gradient(
+        to top,
+        rgba(9,10,12,.98) 72%,
+        rgba(9,10,12,0)
+      );
+    }
+    .concluir-btn {
+      width:100%;
+      min-height:54px;
+      border:1px solid #2f8050;
+      border-radius:12px;
+      background:linear-gradient(180deg, #66cb84, #48a968);
+      color:#08150d;
+      font-size:15px;
+      font-weight:800;
+      letter-spacing:.2px;
+      box-shadow:0 8px 22px rgba(0,0,0,.28);
+    }
+    .concluir-btn:active {
+      transform:translateY(1px);
+    }
+    .concluir-info {
+      margin-top:7px;
+      text-align:center;
+      color:var(--texto2);
+      font-size:11px;
+    }
     .contador {
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -187,7 +220,7 @@
 
     <div class="botoes">
       <button id="btnIniciar" class="principal" onclick="iniciarScanner()">INICIAR CÂMERA</button>
-      <button id="btnParar" class="secundario" onclick="pararScanner()">PARAR CÂMERA</button>
+      <button id="btnParar" class="secundario" onclick="pararScanner()">PAUSAR CÂMERA</button>
     </div>
   </section>
 
@@ -212,6 +245,19 @@
     <div id="motor" class="motor">Leitores: carregando...</div>
     <div id="lista" class="lista"></div>
   </section>
+
+  <div class="concluir-wrap">
+    <button
+      id="btnConcluir"
+      class="concluir-btn"
+      onclick="concluirEVoltar()"
+    >
+      ✓ CONCLUIR E VOLTAR
+    </button>
+    <div id="concluirInfo" class="concluir-info">
+      A câmera será desligada automaticamente.
+    </div>
+  </div>
 </main>
 
 <script>
@@ -424,7 +470,12 @@
     let zxingOk = false;
 
     try {
-      const api = window.barcodeDetectorPolyfill;
+      const api =
+        (
+          typeof barcodeDetectorPolyfill !== 'undefined'
+            ? barcodeDetectorPolyfill
+            : window.barcodeDetectorPolyfill
+        );
 
       if (api && api.BarcodeDetectorPolyfill) {
         zbarDetector = new api.BarcodeDetectorPolyfill({
@@ -568,7 +619,7 @@
     }
   };
 
-  window.pararScanner = async function () {
+  window.pararScanner = async function (silencioso) {
     scannerRodando = false;
     scanBusy = false;
 
@@ -584,7 +635,90 @@
     cameraStream = null;
     video.srcObject = null;
 
-    definirStatus('Câmera parada.', false, false);
+    if (!silencioso) {
+      definirStatus('Câmera pausada.', false, false);
+    }
+  };
+
+  /*
+   * Finalização profissional:
+   * - para a leitura;
+   * - desliga fisicamente a câmera;
+   * - avisa a Consulta;
+   * - volta para a janela que abriu o scanner.
+   */
+  window.concluirEVoltar = async function () {
+    const botao = document.getElementById('btnConcluir');
+    const info = document.getElementById('concluirInfo');
+
+    if (botao) {
+      botao.disabled = true;
+      botao.textContent = 'FINALIZANDO...';
+    }
+
+    if (info) {
+      info.textContent = 'Desligando a câmera e retornando à Consulta Patrimonial...';
+    }
+
+    definirStatus(
+      'Finalizando leitura...',
+      false,
+      true
+    );
+
+    try {
+      await window.pararScanner(true);
+    } catch (e) {}
+
+    try {
+      if (window.opener && returnOrigin) {
+        window.opener.postMessage(
+          {
+            tipo: 'ACADEPOL_SCANNER_FINALIZADO',
+            quantidade: lidos.size
+          },
+          returnOrigin
+        );
+      }
+    } catch (e) {}
+
+    /*
+     * Como o scanner é aberto pela Consulta Patrimonial,
+     * o clique do usuário permite fechar a janela/aba criada
+     * pelo próprio sistema.
+     */
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.focus();
+      }
+    } catch (e) {}
+
+    setTimeout(function () {
+      try {
+        window.close();
+      } catch (e) {}
+
+      /*
+       * Fallback para navegadores móveis que não fecharem
+       * a aba criada pelo window.open().
+       */
+      setTimeout(function () {
+        if (!window.closed && window.history.length > 1) {
+          try {
+            window.history.back();
+          } catch (e) {}
+        }
+
+        if (botao && !window.closed) {
+          botao.disabled = false;
+          botao.textContent = '✓ CONCLUIR E VOLTAR';
+        }
+
+        if (info && !window.closed) {
+          info.textContent = 'A câmera foi desligada. Toque novamente para voltar.';
+        }
+      }, 350);
+    }, 120);
   };
 
   function agendarLeitura(atraso) {
@@ -927,6 +1061,16 @@
     document.getElementById('ultimo').textContent =
       codigo;
 
+    const btnConcluir =
+      document.getElementById('btnConcluir');
+
+    if (btnConcluir) {
+      btnConcluir.textContent =
+        '✓ CONCLUIR E VOLTAR (' +
+        String(lidos.size) +
+        ')';
+    }
+
     const item = document.createElement('div');
     item.className = 'item';
     item.textContent =
@@ -1003,9 +1147,15 @@
     }, 300);
   });
 
+  window.addEventListener('pagehide', function () {
+    try {
+      window.pararScanner(true);
+    } catch (e) {}
+  });
+
   window.addEventListener('beforeunload', function () {
     try {
-      window.pararScanner();
+      window.pararScanner(true);
     } catch (e) {}
   });
 })();
