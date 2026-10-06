@@ -153,6 +153,7 @@
     }
     .concluir-btn {
       width:100%;
+      flex:none;
       min-height:54px;
       border:1px solid #2f8050;
       border-radius:12px;
@@ -264,10 +265,10 @@
         flex:1 1 auto;
         min-height:0;
         width:100%;
-        padding:7px;
+        padding:7px 7px 67px;
         overflow:hidden;
-        display:grid;
-        grid-template-rows:minmax(0, 1fr) auto auto;
+        display:flex;
+        flex-direction:column;
         gap:7px;
       }
       .painel {
@@ -276,9 +277,13 @@
         border-radius:12px;
       }
       .painel-camera {
+        flex:0 0 auto;
         min-height:0;
         display:flex;
         flex-direction:column;
+      }
+      .painel-info {
+        flex:0 0 auto;
       }
       .status {
         flex:0 0 auto;
@@ -288,7 +293,8 @@
         line-height:1.25;
       }
       .camera-wrap {
-        flex:1 1 auto;
+        flex:0 0 auto;
+        height:clamp(210px, 34dvh, 280px);
         min-height:0;
         border-radius:10px;
       }
@@ -297,6 +303,7 @@
         height:100%;
         max-height:none;
         object-fit:cover;
+        object-position:center center;
       }
       .scan-label {
         top:-23px;
@@ -341,14 +348,19 @@
         display:none;
       }
       .concluir-wrap {
-        position:static;
-        padding:0 0 max(2px, env(safe-area-inset-bottom));
+        position:fixed;
+        left:7px;
+        right:7px;
+        bottom:max(6px, env(safe-area-inset-bottom));
+        z-index:100;
+        padding:0;
         background:none;
       }
       .concluir-btn {
-        min-height:45px;
+        min-height:50px;
         font-size:13px;
-        border-radius:11px;
+        border-radius:12px;
+        box-shadow:0 8px 24px rgba(0,0,0,.48);
       }
       .concluir-info {
         display:none;
@@ -377,10 +389,10 @@
   <section class="painel painel-camera">
     <div id="status" class="status">Preparando câmera...</div>
 
-    <div class="camera-wrap">
+    <div id="cameraWrap" class="camera-wrap">
       <video id="video" playsinline muted autoplay></video>
 
-      <div class="scan-zone">
+      <div id="scanZone" class="scan-zone">
         <div class="scan-label">CENTRALIZE O CÓDIGO NESTA FAIXA</div>
         <div class="scan-line"></div>
       </div>
@@ -699,6 +711,60 @@
     );
   }
 
+  /*
+   * Mantém o retângulo amarelo alinhado com a ROI REAL do frame.
+   * No celular a câmera é mostrada em uma janela menor com object-fit: cover.
+   * Como há recorte visual acima/abaixo, esta função projeta a ROI do
+   * frame completo para a área realmente visível na tela.
+   */
+  function atualizarZonaVisual() {
+    const wrap = document.getElementById('cameraWrap');
+    const zone = document.getElementById('scanZone');
+
+    if (
+      !wrap ||
+      !zone ||
+      !video.videoWidth ||
+      !video.videoHeight ||
+      !wrap.clientWidth ||
+      !wrap.clientHeight
+    ) {
+      return;
+    }
+
+    const cw = wrap.clientWidth;
+    const ch = wrap.clientHeight;
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    const scale = Math.max(
+      cw / vw,
+      ch / vh
+    );
+
+    const displayedW = vw * scale;
+    const displayedH = vh * scale;
+
+    const offsetX = (cw - displayedW) / 2;
+    const offsetY = (ch - displayedH) / 2;
+
+    const left = offsetX + ROI.left * displayedW;
+    const right = offsetX + ROI.right * displayedW;
+    const top = offsetY + ROI.top * displayedH;
+    const bottom = offsetY + ROI.bottom * displayedH;
+
+    const x1 = Math.max(4, left);
+    const x2 = Math.min(cw - 4, right);
+    const y1 = Math.max(4, top);
+    const y2 = Math.min(ch - 4, bottom);
+
+    zone.style.left = x1 + 'px';
+    zone.style.top = y1 + 'px';
+    zone.style.width = Math.max(20, x2 - x1) + 'px';
+    zone.style.height = Math.max(20, y2 - y1) + 'px';
+    zone.style.right = 'auto';
+  }
+
   function distanciaDoCentro(bounds, width, height) {
     const centro = centroDaDeteccao(bounds);
     if (!centro || !width || !height) return Number.POSITIVE_INFINITY;
@@ -837,6 +903,8 @@
 
       video.srcObject = cameraStream;
       await video.play();
+
+      atualizarZonaVisual();
 
       await otimizarCamera();
 
@@ -1387,6 +1455,14 @@
       oscilador.stop(contexto.currentTime + 0.08);
     } catch (e) {}
   }
+
+  video.addEventListener('loadedmetadata', function () {
+    atualizarZonaVisual();
+  });
+
+  window.addEventListener('resize', function () {
+    atualizarZonaVisual();
+  });
 
   window.addEventListener('load', function () {
     const parametros = new URLSearchParams(window.location.search);
