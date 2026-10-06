@@ -1302,9 +1302,18 @@
         );
       }
 
+      /*
+       * Se o ZBar não estiver disponível neste aparelho/navegador,
+       * o ZXing deixa de ser apenas fallback e passa a analisar TODOS
+       * os frames. Isso evita a sensação de atraso que ocorria quando
+       * o ZXing era chamado somente a cada 4 tentativas.
+       */
       if (
         !deteccao &&
-        scanAttempt % ZXING_FALLBACK_EVERY === 0
+        (
+          !zbarDetector ||
+          scanAttempt % ZXING_FALLBACK_EVERY === 0
+        )
       ) {
         deteccao = await detectarZXing(
           frame.width,
