@@ -19,6 +19,18 @@
     src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
   ></script>
 
+  <!--
+    Leitura reforçada para etiquetas patrimoniais.
+    ZBar-WASM é o leitor principal adicional; html5-qrcode continua como fallback.
+  -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js"
+  ></script>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.23/dist/index.js"
+  ></script>
+
 
   <style>
 
@@ -549,6 +561,32 @@ let ultimoHorario =
 const lidos =
   new Set();
 
+let zbarDetector =
+  null;
+
+let zbarTimer =
+  null;
+
+let zbarBusy =
+  false;
+
+let zbarTentativa =
+  0;
+
+const zbarCanvas =
+  document.createElement(
+    'canvas'
+  );
+
+const zbarContext =
+  zbarCanvas.getContext(
+    '2d',
+    {
+      willReadFrequently:
+        true
+    }
+  );
+
 
 /************************************************************
  * INICIALIZAÇÃO
@@ -680,7 +718,11 @@ async function iniciarScanner() {
         decodedResult
       ) {
         processarLeitura(
-          decodedText
+          decodedText,
+          extrairFormatoHtml5(
+            decodedResult
+          ),
+          'HTML5-QR'
         );
       },
 
@@ -699,8 +741,12 @@ async function iniciarScanner() {
     scannerRodando =
       true;
 
+    await otimizarCamera();
+
+    iniciarLeituraZBar();
+
     definirStatus(
-      'Câmera ativa. Aponte para o código.',
+      'Câmera ativa com leitura reforçada. Aponte para o código.',
       false,
       true
     );
@@ -786,6 +832,8 @@ async function iniciarScanner() {
  ************************************************************/
 async function pararScanner() {
 
+  pararLeituraZBar();
+
   if (
     !leitor ||
     !scannerRodando
@@ -815,10 +863,648 @@ async function pararScanner() {
 
 
 /************************************************************
+ * LEITURA REFORÇADA
+ ************************************************************/
+function extrairFormatoHtml5(
+  decodedResult
+) {
+  const candidatos = [
+    decodedResult &&
+      decodedResult.result &&
+      decodedResult.result.format &&
+      decodedResult.result.format.formatName,
+
+    decodedResult &&
+      decodedResult.result &&
+      decodedResult.result.format &&
+      decodedResult.result.format.format,
+
+    decodedResult &&
+      decodedResult.format,
+
+    decodedResult &&
+      decodedResult.symbology
+  ];
+
+  for (
+    const valor
+    of candidatos
+  ) {
+    const texto =
+      String(
+        valor || ''
+      ).trim();
+
+    if (texto) {
+      return texto;
+    }
+  }
+
+  return '';
+}
+
+
+function obterVideoAtivo() {
+  return document.querySelector(
+    '#reader video'
+  );
+}
+
+
+async function otimizarCamera() {
+  const video =
+    obterVideoAtivo();
+
+  const track =
+    video &&
+    video.srcObject &&
+    video.srcObject
+      .getVideoTracks
+      ? video.srcObject
+          .getVideoTracks()[0]
+      : null;
+
+  if (!track) {
+    return;
+  }
+
+  /*
+   * Tenta usar uma resolução alta.
+   * Se o aparelho não aceitar, simplesmente
+   * mantém a configuração escolhida pelo navegador.
+   */
+  try {
+    await track.applyConstraints({
+      width: {
+        ideal: 1920
+      },
+
+      height: {
+        ideal: 1080
+      }
+    });
+  } catch (e) {}
+
+
+  /*
+   * Mantém foco contínuo quando a câmera oferece
+   * esse recurso. Ajuda especialmente em etiquetas
+   * pequenas e códigos com barras finas.
+   */
+  try {
+    const capabilities =
+      track.getCapabilities
+        ? track.getCapabilities()
+        : {};
+
+    if (
+      Array.isArray(
+        capabilities.focusMode
+      ) &&
+      capabilities.focusMode.includes(
+        'continuous'
+      )
+    ) {
+      await track.applyConstraints({
+        advanced: [
+          {
+            focusMode:
+              'continuous'
+          }
+        ]
+      });
+    }
+  } catch (e) {}
+}
+
+
+function inicializarZBar() {
+  if (zbarDetector) {
+    return true;
+  }
+
+  try {
+    const api =
+      window
+        .barcodeDetectorPolyfill;
+
+    if (
+      !api ||
+      !api.BarcodeDetectorPolyfill
+    ) {
+      return false;
+    }
+
+    zbarDetector =
+      new api.BarcodeDetectorPolyfill({
+        formats: [
+          'codabar',
+          'code_39',
+          'code_93',
+          'code_128',
+          'databar',
+          'databar_exp',
+          'ean_8',
+          'ean_13',
+          'itf',
+          'qr_code',
+          'upc_a',
+          'upc_e'
+        ]
+      });
+
+    return true;
+
+  } catch (e) {
+    zbarDetector =
+      null;
+
+    return false;
+  }
+}
+
+
+function iniciarLeituraZBar() {
+  pararLeituraZBar();
+
+  if (
+    !scannerRodando ||
+    !inicializarZBar()
+  ) {
+    return;
+  }
+
+  agendarZBar(
+    120
+  );
+}
+
+
+function pararLeituraZBar() {
+  if (zbarTimer) {
+    clearTimeout(
+      zbarTimer
+    );
+  }
+
+  zbarTimer =
+    null;
+
+  zbarBusy =
+    false;
+}
+
+
+function agendarZBar(
+  atraso
+) {
+  if (
+    !scannerRodando ||
+    !zbarDetector
+  ) {
+    return;
+  }
+
+  if (zbarTimer) {
+    clearTimeout(
+      zbarTimer
+    );
+  }
+
+  zbarTimer =
+    setTimeout(
+      cicloZBar,
+      atraso || 170
+    );
+}
+
+
+function normalizarFormato(
+  formato
+) {
+  return String(
+    formato || ''
+  )
+    .trim()
+    .toUpperCase()
+    .replace(
+      /[^A-Z0-9]/g,
+      ''
+    );
+}
+
+
+function ehCodabar(
+  formato
+) {
+  return normalizarFormato(
+    formato
+  ).includes(
+    'CODABAR'
+  );
+}
+
+
+function normalizarPatrimonioLido(
+  valor,
+  formato
+) {
+  const bruto =
+    String(
+      valor || ''
+    )
+      .replace(
+        /[\u0000-\u001F\u007F]/g,
+        ''
+      )
+      .trim()
+      .toUpperCase();
+
+  if (!bruto) {
+    return '';
+  }
+
+  /*
+   * CODABAR usa A/B/C/D como caracteres
+   * técnicos de início e fim.
+   *
+   * Exemplo:
+   * A16025360A -> 16025360
+   *
+   * Também reconhecemos esse padrão quando
+   * o leitor não informa a simbologia, mas
+   * somente se o conteúdo interno for numérico
+   * com pontuação válida de CODABAR.
+   */
+  const pareceCodabarComGuardas =
+    /^[ABCD][0-9 .:+\/$-]+[ABCD]$/
+      .test(
+        bruto
+      );
+
+  if (
+    ehCodabar(
+      formato
+    ) ||
+    pareceCodabarComGuardas
+  ) {
+    const semGuardas =
+      bruto
+        .replace(
+          /^[ABCD]/,
+          ''
+        )
+        .replace(
+          /[ABCD]$/,
+          ''
+        );
+
+    if (
+      !/^[0-9 .:+\/$-]+$/
+        .test(
+          semGuardas
+        )
+    ) {
+      return '';
+    }
+
+    const digitos =
+      semGuardas.replace(
+        /\D/g,
+        ''
+      );
+
+    return digitos.length >= 6
+      ? digitos
+      : '';
+  }
+
+  /*
+   * Demais formatos continuam em modo seguro:
+   * só números, ponto, hífen e espaços.
+   * Não converte letras em números e não
+   * extrai patrimônio de URL ou texto livre.
+   */
+  if (
+    !/^[0-9.\-\s]+$/
+      .test(
+        bruto
+      )
+  ) {
+    return '';
+  }
+
+  return bruto.replace(
+    /\D/g,
+    ''
+  );
+}
+
+
+function escolherMelhorZBar(
+  resultados
+) {
+  const validos =
+    (resultados || [])
+      .filter(
+        function(item) {
+          return (
+            item &&
+            normalizarPatrimonioLido(
+              item.rawValue,
+              item.format
+            )
+          );
+        }
+      );
+
+  if (!validos.length) {
+    return null;
+  }
+
+  /*
+   * Se houver mais de um código visível,
+   * prioriza o que ocupa maior área na imagem.
+   */
+  validos.sort(
+    function(a, b) {
+      const aa =
+        a.boundingBox
+          ? Number(
+              a.boundingBox.width || 0
+            ) *
+            Number(
+              a.boundingBox.height || 0
+            )
+          : 0;
+
+      const bb =
+        b.boundingBox
+          ? Number(
+              b.boundingBox.width || 0
+            ) *
+            Number(
+              b.boundingBox.height || 0
+            )
+          : 0;
+
+      return bb - aa;
+    }
+  );
+
+  return validos[0];
+}
+
+
+function prepararImagemReforcada(
+  video
+) {
+  if (
+    !video ||
+    !video.videoWidth ||
+    !video.videoHeight ||
+    !zbarContext
+  ) {
+    return false;
+  }
+
+  const larguraOriginal =
+    video.videoWidth;
+
+  const alturaOriginal =
+    video.videoHeight;
+
+  const escala =
+    Math.min(
+      2,
+      1440 /
+        larguraOriginal
+    );
+
+  const largura =
+    Math.max(
+      1,
+      Math.round(
+        larguraOriginal *
+        escala
+      )
+    );
+
+  const altura =
+    Math.max(
+      1,
+      Math.round(
+        alturaOriginal *
+        escala
+      )
+    );
+
+  if (
+    zbarCanvas.width !==
+      largura ||
+    zbarCanvas.height !==
+      altura
+  ) {
+    zbarCanvas.width =
+      largura;
+
+    zbarCanvas.height =
+      altura;
+  }
+
+  zbarContext
+    .drawImage(
+      video,
+      0,
+      0,
+      larguraOriginal,
+      alturaOriginal,
+      0,
+      0,
+      largura,
+      altura
+    );
+
+  /*
+   * Escala de cinza + contraste moderado.
+   * É usado somente como segunda tentativa,
+   * principalmente para etiquetas gastas.
+   */
+  try {
+    const imagem =
+      zbarContext
+        .getImageData(
+          0,
+          0,
+          largura,
+          altura
+        );
+
+    const dados =
+      imagem.data;
+
+    for (
+      let i = 0;
+      i < dados.length;
+      i += 4
+    ) {
+      const cinza =
+        Math.round(
+          dados[i] *
+            0.299 +
+          dados[i + 1] *
+            0.587 +
+          dados[i + 2] *
+            0.114
+        );
+
+      const contraste =
+        Math.max(
+          0,
+          Math.min(
+            255,
+            Math.round(
+              128 +
+              (
+                cinza -
+                128
+              ) *
+              1.55
+            )
+          )
+        );
+
+      dados[i] =
+        contraste;
+
+      dados[i + 1] =
+        contraste;
+
+      dados[i + 2] =
+        contraste;
+    }
+
+    zbarContext
+      .putImageData(
+        imagem,
+        0,
+        0
+      );
+
+  } catch (e) {}
+
+  return true;
+}
+
+
+async function cicloZBar() {
+  if (
+    !scannerRodando ||
+    !zbarDetector ||
+    zbarBusy
+  ) {
+    agendarZBar(
+      180
+    );
+
+    return;
+  }
+
+  const video =
+    obterVideoAtivo();
+
+  if (
+    !video ||
+    video.readyState < 2
+  ) {
+    agendarZBar(
+      180
+    );
+
+    return;
+  }
+
+  zbarBusy =
+    true;
+
+  zbarTentativa +=
+    1;
+
+  try {
+    let resultados =
+      [];
+
+    try {
+      resultados =
+        await zbarDetector
+          .detect(
+            video
+          );
+    } catch (e) {}
+
+    let melhor =
+      escolherMelhorZBar(
+        resultados
+      );
+
+    /*
+     * A cada 3 tentativas sem leitura,
+     * faz uma segunda passagem com
+     * contraste reforçado.
+     */
+    if (
+      !melhor &&
+      zbarTentativa % 3 === 0 &&
+      prepararImagemReforcada(
+        video
+      )
+    ) {
+      try {
+        resultados =
+          await zbarDetector
+            .detect(
+              zbarCanvas
+            );
+      } catch (e) {
+        resultados =
+          [];
+      }
+
+      melhor =
+        escolherMelhorZBar(
+          resultados
+        );
+    }
+
+    if (
+      melhor &&
+      scannerRodando
+    ) {
+      processarLeitura(
+        melhor.rawValue,
+        melhor.format,
+        'ZBAR-WASM'
+      );
+    }
+
+  } finally {
+    zbarBusy =
+      false;
+
+    agendarZBar(
+      170
+    );
+  }
+}
+
+
+/************************************************************
  * LEITURA
  ************************************************************/
 function processarLeitura(
-  valor
+  valor,
+  formato,
+  motor
 ) {
   const texto =
     String(
@@ -829,36 +1515,19 @@ function processarLeitura(
     return;
   }
 
-  /*
-   * Patrimônio precisa conter apenas:
-   * números
-   * ponto
-   * hífen
-   * espaços
-   *
-   * Não extrai números de URLs ou textos.
-   */
-  if (
-    !/^[0-9.\-\s]+$/.test(
-      texto
-    )
-  ) {
+  const normalizado =
+    normalizarPatrimonioLido(
+      texto,
+      formato
+    );
+
+  if (!normalizado) {
     definirStatus(
       'Código lido, mas o conteúdo não é um patrimônio válido: ' +
       texto,
       true
     );
 
-    return;
-  }
-
-  const normalizado =
-    texto.replace(
-      /\D/g,
-      ''
-    );
-
-  if (!normalizado) {
     return;
   }
 
@@ -947,7 +1616,12 @@ function processarLeitura(
   definirStatus(
     'Patrimônio ' +
     normalizado +
-    ' lido ✓',
+    ' lido ✓' +
+    (
+      motor
+        ? ' · ' + motor
+        : ''
+    ),
     false,
     true
   );
@@ -1080,6 +1754,8 @@ function definirStatus(
 window.addEventListener(
   'beforeunload',
   function() {
+
+    pararLeituraZBar();
 
     if (
       leitor &&
