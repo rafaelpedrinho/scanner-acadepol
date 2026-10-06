@@ -1,1776 +1,1014 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090a0c">
+  <title>Scanner Patrimonial - ACADEPOL</title>
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  >
+  <!-- ZBar-WASM + polyfill BarcodeDetector -->
+  <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.23/dist/index.js"></script>
 
-  <title>
-    Scanner Patrimonial - ACADEPOL
-  </title>
-
-
-  <script
-    src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
-  ></script>
-
-  <!--
-    Leitura reforçada para etiquetas patrimoniais.
-    ZBar-WASM é o leitor principal adicional; html5-qrcode continua como fallback.
-  -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js"
-  ></script>
-
-  <script
-    src="https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.23/dist/index.js"
-  ></script>
-
+  <!-- ZXing-C++ WASM: fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js"></script>
 
   <style>
-
     :root {
-      --fundo: #090a0c;
-      --painel: #121418;
-      --borda: #2c2f35;
-
-      --dourado: #c7a64b;
-      --dourado2: #e0bd59;
-
-      --texto: #f1f1f1;
-      --texto2: #aeb1b7;
-
-      --verde: #58bf76;
-      --vermelho: #e26963;
+      --fundo:#090a0c;
+      --painel:#121418;
+      --borda:#2c2f35;
+      --dourado:#c7a64b;
+      --dourado2:#e0bd59;
+      --texto:#f1f1f1;
+      --texto2:#aeb1b7;
+      --verde:#58bf76;
+      --vermelho:#e26963;
+      --amarelo:#f3c623;
     }
-
-
-    * {
-      box-sizing:
-        border-box;
+    * { box-sizing:border-box; }
+    html, body {
+      margin:0;
+      min-height:100%;
+      background:var(--fundo);
+      color:var(--texto);
+      font-family:Arial, Helvetica, sans-serif;
     }
-
-
-    html,
-    body {
-      margin: 0;
-
-      min-height:
-        100%;
-
-      background:
-        var(--fundo);
-
-      color:
-        var(--texto);
-
-      font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-    }
-
-
-    body {
-      min-height:
-        100vh;
-    }
-
-
+    body { min-height:100vh; }
     header {
-      background:
-        #101115;
-
-      border-bottom:
-        1px solid
-        var(--borda);
-
-      padding:
-        18px;
+      background:#101115;
+      border-bottom:1px solid var(--borda);
+      padding:18px;
     }
-
-
-    .cabecalho {
-      max-width:
-        800px;
-
-      margin:
-        auto;
-    }
-
-
-    .titulo {
-      color:
-        var(--dourado2);
-
-      font-size:
-        21px;
-
-      font-weight:
-        800;
-    }
-
-
-    .subtitulo {
-      color:
-        var(--texto2);
-
-      font-size:
-        12px;
-
-      margin-top:
-        4px;
-    }
-
-
-    main {
-      max-width:
-        800px;
-
-      margin:
-        auto;
-
-      padding:
-        14px;
-    }
-
-
+    .cabecalho { max-width:800px; margin:auto; }
+    .titulo { color:var(--dourado2); font-size:21px; font-weight:800; }
+    .subtitulo { color:var(--texto2); font-size:12px; margin-top:4px; }
+    main { max-width:800px; margin:auto; padding:14px; }
     .painel {
-      background:
-        var(--painel);
-
-      border:
-        1px solid
-        var(--borda);
-
-      border-radius:
-        14px;
-
-      padding:
-        14px;
-
-      margin-bottom:
-        14px;
+      background:var(--painel);
+      border:1px solid var(--borda);
+      border-radius:14px;
+      padding:14px;
+      margin-bottom:14px;
     }
-
-
     .status {
-      padding:
-        11px 12px;
-
-      border-radius:
-        9px;
-
-      font-size:
-        13px;
-
-      background:
-        #17191e;
-
-      color:
-        var(--texto2);
-
-      margin-bottom:
-        12px;
+      padding:11px 12px;
+      border-radius:9px;
+      font-size:13px;
+      background:#17191e;
+      color:var(--texto2);
+      margin-bottom:12px;
     }
-
-
     .status.ok {
-      background:
-        #102118;
-
-      color:
-        #8bddaa;
-
-      border:
-        1px solid
-        #285d3b;
+      background:#102118;
+      color:#8bddaa;
+      border:1px solid #285d3b;
     }
-
-
     .status.erro {
-      background:
-        #291111;
-
-      color:
-        #ffaaa5;
-
-      border:
-        1px solid
-        #692929;
+      background:#291111;
+      color:#ffaaa5;
+      border:1px solid #692929;
     }
-
-
-    #reader {
-      width:
-        100%;
-
-      overflow:
-        hidden;
-
-      border-radius:
-        12px;
-
-      background:
-        #000;
+    .camera-wrap {
+      position:relative;
+      width:100%;
+      overflow:hidden;
+      border-radius:12px;
+      background:#000;
+      min-height:260px;
     }
-
-
-    #reader video {
-      width:
-        100% !important;
-
-      max-height:
-        70vh;
-
-      object-fit:
-        cover;
+    #video {
+      display:block;
+      width:100%;
+      max-height:72vh;
+      object-fit:cover;
+      background:#000;
     }
-
-
+    .scan-zone {
+      position:absolute;
+      left:8%;
+      right:8%;
+      top:38%;
+      height:24%;
+      border:2px solid var(--amarelo);
+      border-radius:12px;
+      pointer-events:none;
+      box-shadow:
+        0 0 0 9999px rgba(0,0,0,.16),
+        0 0 14px rgba(243,198,35,.28);
+    }
+    .scan-label {
+      position:absolute;
+      top:-27px;
+      left:50%;
+      transform:translateX(-50%);
+      white-space:nowrap;
+      padding:4px 8px;
+      border-radius:7px;
+      background:rgba(0,0,0,.78);
+      color:var(--amarelo);
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.3px;
+    }
+    .scan-line {
+      position:absolute;
+      left:3%;
+      right:3%;
+      top:50%;
+      height:1px;
+      background:rgba(243,198,35,.55);
+    }
     .botoes {
-      display:
-        flex;
-
-      gap:
-        8px;
-
-      flex-wrap:
-        wrap;
-
-      margin-top:
-        12px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
     }
-
-
     button {
-      flex:
-        1 1 160px;
-
-      min-height:
-        46px;
-
-      border:
-        0;
-
-      border-radius:
-        10px;
-
-      font-weight:
-        700;
-
-      cursor:
-        pointer;
+      flex:1 1 160px;
+      min-height:46px;
+      border:0;
+      border-radius:10px;
+      font-weight:700;
+      cursor:pointer;
     }
-
-
-    .principal {
-      background:
-        var(--dourado);
-
-      color:
-        #111;
-    }
-
-
+    .principal { background:var(--dourado); color:#111; }
     .secundario {
-      background:
-        #292c32;
-
-      color:
-        var(--texto);
-
-      border:
-        1px solid
-        #3c4048;
+      background:#292c32;
+      color:var(--texto);
+      border:1px solid #3c4048;
     }
-
-
     .contador {
-      display:
-        grid;
-
-      grid-template-columns:
-        1fr 1fr;
-
-      gap:
-        10px;
-
-      margin-bottom:
-        12px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-bottom:12px;
     }
-
-
     .card {
-      background:
-        #181a1f;
-
-      border:
-        1px solid
-        var(--borda);
-
-      border-radius:
-        10px;
-
-      padding:
-        12px;
+      background:#181a1f;
+      border:1px solid var(--borda);
+      border-radius:10px;
+      padding:12px;
     }
-
-
-    .cardTitulo {
-      color:
-        var(--texto2);
-
-      font-size:
-        11px;
-
-      font-weight:
-        bold;
+    .cardTitulo { color:var(--texto2); font-size:11px; font-weight:bold; }
+    .cardValor { color:var(--dourado2); font-size:25px; font-weight:bold; margin-top:5px; }
+    .lista { max-height:220px; overflow-y:auto; margin-top:10px; }
+    .item { padding:9px 6px; border-bottom:1px solid #272a30; font-size:13px; }
+    .ajuda { color:var(--texto2); font-size:12px; line-height:1.5; }
+    .motor { color:#7f838c; font-size:10px; margin-top:5px; }
+    @media (max-width:500px) {
+      main { padding:10px; }
+      button { flex:1 1 100%; }
+      .camera-wrap { min-height:220px; }
     }
-
-
-    .cardValor {
-      color:
-        var(--dourado2);
-
-      font-size:
-        25px;
-
-      font-weight:
-        bold;
-
-      margin-top:
-        5px;
-    }
-
-
-    .ultimo {
-      color:
-        var(--dourado2);
-
-      font-weight:
-        bold;
-
-      word-break:
-        break-all;
-    }
-
-
-    .lista {
-      max-height:
-        220px;
-
-      overflow-y:
-        auto;
-
-      margin-top:
-        10px;
-    }
-
-
-    .item {
-      padding:
-        9px 6px;
-
-      border-bottom:
-        1px solid
-        #272a30;
-
-      font-size:
-        13px;
-    }
-
-
-    .ajuda {
-      color:
-        var(--texto2);
-
-      font-size:
-        12px;
-
-      line-height:
-        1.5;
-    }
-
-
-    @media (
-      max-width: 500px
-    ) {
-
-      main {
-        padding:
-          10px;
-      }
-
-
-      .contador {
-        grid-template-columns:
-          1fr 1fr;
-      }
-
-
-      button {
-        flex:
-          1 1 100%;
-      }
-    }
-
   </style>
-
 </head>
-
-
 <body>
-
 <header>
-
   <div class="cabecalho">
-
-    <div class="titulo">
-      SCANNER PATRIMONIAL
-    </div>
-
-    <div class="subtitulo">
-      ACADEPOL · PCSC
-    </div>
-
+    <div class="titulo">SCANNER PATRIMONIAL</div>
+    <div class="subtitulo">ACADEPOL · PCSC</div>
   </div>
-
 </header>
 
-
 <main>
-
   <section class="painel">
+    <div id="status" class="status">Preparando câmera...</div>
 
-    <div
-      id="status"
-      class="status"
-    >
-      Preparando câmera...
+    <div class="camera-wrap">
+      <video id="video" playsinline muted autoplay></video>
+
+      <div class="scan-zone">
+        <div class="scan-label">CENTRALIZE O CÓDIGO NESTA FAIXA</div>
+        <div class="scan-line"></div>
+      </div>
     </div>
-
-
-    <div
-      id="reader"
-    ></div>
-
 
     <div class="botoes">
-
-      <button
-        id="btnIniciar"
-        class="principal"
-        onclick="iniciarScanner()"
-      >
-        INICIAR CÂMERA
-      </button>
-
-
-      <button
-        id="btnParar"
-        class="secundario"
-        onclick="pararScanner()"
-      >
-        PARAR CÂMERA
-      </button>
-
+      <button id="btnIniciar" class="principal" onclick="iniciarScanner()">INICIAR CÂMERA</button>
+      <button id="btnParar" class="secundario" onclick="pararScanner()">PARAR CÂMERA</button>
     </div>
-
   </section>
-
 
   <section class="painel">
-
     <div class="contador">
-
       <div class="card">
-
-        <div class="cardTitulo">
-          LIDOS
-        </div>
-
-        <div
-          id="quantidade"
-          class="cardValor"
-        >
-          0
-        </div>
-
+        <div class="cardTitulo">LIDOS</div>
+        <div id="quantidade" class="cardValor">0</div>
       </div>
 
-
       <div class="card">
-
-        <div class="cardTitulo">
-          ÚLTIMO
-        </div>
-
-        <div
-          id="ultimo"
-          class="cardValor"
-          style="font-size:18px"
-        >
-          -
-        </div>
-
+        <div class="cardTitulo">ÚLTIMO</div>
+        <div id="ultimo" class="cardValor" style="font-size:18px">-</div>
       </div>
-
     </div>
-
 
     <div class="ajuda">
-      Aponte a câmera para a etiqueta.
-      Quando o código for identificado ele será enviado
-      automaticamente para a Consulta Patrimonial.
-      Você pode continuar apontando para o próximo patrimônio.
+      O quadro inteiro é analisado. O código só é aceito quando o centro dele estiver dentro da faixa amarela.
+      Isso evita capturar outra etiqueta acima ou abaixo sem cortar a imagem antes da leitura.
     </div>
 
-
-    <div
-      id="lista"
-      class="lista"
-    ></div>
-
+    <div id="motor" class="motor">Leitores: carregando...</div>
+    <div id="lista" class="lista"></div>
   </section>
-
 </main>
 
-
 <script>
+(function () {
+  'use strict';
 
-let leitor = null;
+  const ROI = Object.freeze({
+    left: 0.08,
+    right: 0.92,
+    top: 0.38,
+    bottom: 0.62
+  });
 
-let scannerRodando =
-  false;
+  const ROI_TOLERANCE_X = 0.015;
+  const ROI_TOLERANCE_Y = 0.03;
 
-let returnOrigin =
-  '';
+  const SCAN_DELAY_MS = 90;
+  const STABLE_WINDOW_MS = 700;
+  const STABLE_HITS_REQUIRED = 2;
+  const CODABAR_HITS_REQUIRED = 1;
+  const ACCEPTED_CODE_COOLDOWN_MS = 2200;
 
-let ultimoNormalizado =
-  '';
+  const ZXING_FALLBACK_EVERY = 3;
+  const ENHANCED_ZBAR_EVERY = 4;
 
-let ultimoHorario =
-  0;
+  const MAX_SCAN_WIDTH = 1920;
+  const ENHANCED_MAX_WIDTH = 1440;
 
-const lidos =
-  new Set();
+  const ZBAR_FORMATS = [
+    'codabar',
+    'code_39',
+    'code_93',
+    'code_128',
+    'databar',
+    'databar_exp',
+    'ean_8',
+    'ean_13',
+    'itf',
+    'qr_code',
+    'upc_a',
+    'upc_e'
+  ];
 
-let zbarDetector =
-  null;
+  const ZXING_FORMATS = [
+    'AllLinear',
+    'QRCode'
+  ];
 
-let zbarTimer =
-  null;
+  let cameraStream = null;
+  let scannerRodando = false;
+  let scanTimer = null;
+  let scanBusy = false;
+  let scanAttempt = 0;
 
-let zbarBusy =
-  false;
+  let zbarDetector = null;
+  let zxingReadyPromise = null;
 
-let zbarTentativa =
-  0;
+  let returnOrigin = '';
+  let ultimoNormalizado = '';
+  let ultimoHorario = 0;
 
-const zbarCanvas =
-  document.createElement(
-    'canvas'
-  );
+  let stableValue = '';
+  let stableHits = 0;
+  let stableLastAt = 0;
 
-const zbarContext =
-  zbarCanvas.getContext(
-    '2d',
-    {
-      willReadFrequently:
-        true
+  const lidos = new Set();
+
+  const video = document.getElementById('video');
+  const scanCanvas = document.createElement('canvas');
+  const scanContext = scanCanvas.getContext('2d', { willReadFrequently: true });
+
+  const enhancedCanvas = document.createElement('canvas');
+  const enhancedContext = enhancedCanvas.getContext('2d', { willReadFrequently: true });
+
+  function definirStatus(texto, erro, sucesso) {
+    const el = document.getElementById('status');
+    el.textContent = texto;
+    el.className = 'status';
+
+    if (erro) {
+      el.classList.add('erro');
+    } else if (sucesso) {
+      el.classList.add('ok');
     }
-  );
+  }
 
+  function setMotor(texto) {
+    document.getElementById('motor').textContent = texto;
+  }
 
-/************************************************************
- * INICIALIZAÇÃO
- ************************************************************/
-window.addEventListener(
-  'load',
-  function() {
+  function limparTexto(valor) {
+    return String(valor == null ? '' : valor)
+      .replace(/[\u0000-\u001F\u007F]/g, '')
+      .trim();
+  }
 
-    const parametros =
-      new URLSearchParams(
-        window.location.search
-      );
+  function ehCodabar(formato) {
+    return /CODABAR/i.test(String(formato || ''));
+  }
 
-    returnOrigin =
-      String(
-        parametros.get(
-          'returnOrigin'
-        ) || ''
-      ).trim();
+  function normalizarCodabar(valor) {
+    const raw = limparTexto(valor).toUpperCase();
+
+    const semGuardas = raw
+      .replace(/^[ABCD]/, '')
+      .replace(/[ABCD]$/, '');
+
+    if (!/^[0-9 .:+\/$-]+$/.test(semGuardas)) {
+      return '';
+    }
+
+    const digitos = semGuardas.replace(/\D/g, '');
+    return digitos.length >= 6 ? digitos : '';
+  }
+
+  function normalizarPatrimonio(valor, formato) {
+    const raw = limparTexto(valor);
+    if (!raw) return '';
+
+    if (ehCodabar(formato)) {
+      return normalizarCodabar(raw);
+    }
 
     /*
-     * Tenta iniciar automaticamente.
-     *
-     * Se o navegador exigir interação,
-     * o usuário ainda tem o botão
-     * INICIAR CÂMERA.
+     * Segurança: para outros formatos não converte letras em números
+     * e não extrai patrimônio de URLs ou texto livre.
      */
-    setTimeout(
-      function() {
-        iniciarScanner();
-      },
-      300
+    if (!/^[0-9.\-\s]+$/.test(raw)) {
+      return '';
+    }
+
+    return raw.replace(/\D/g, '');
+  }
+
+  function centroDaDeteccao(bounds) {
+    if (!bounds) return null;
+
+    if (
+      Number.isFinite(Number(bounds.x)) &&
+      Number.isFinite(Number(bounds.y))
+    ) {
+      const x = Number(bounds.x);
+      const y = Number(bounds.y);
+      const w = Number(bounds.width || 0);
+      const h = Number(bounds.height || 0);
+
+      return {
+        x: x + w / 2,
+        y: y + h / 2
+      };
+    }
+
+    const pts = [
+      bounds.topLeft,
+      bounds.topRight,
+      bounds.bottomRight,
+      bounds.bottomLeft
+    ].filter(Boolean);
+
+    if (pts.length === 4) {
+      return {
+        x: pts.reduce(function (s, p) { return s + Number(p.x || 0); }, 0) / 4,
+        y: pts.reduce(function (s, p) { return s + Number(p.y || 0); }, 0) / 4
+      };
+    }
+
+    return null;
+  }
+
+  function dentroDaFaixa(bounds, width, height) {
+    const centro = centroDaDeteccao(bounds);
+    if (!centro || !width || !height) return false;
+
+    const xNorm = centro.x / width;
+    const yNorm = centro.y / height;
+
+    return (
+      xNorm >= Math.max(0, ROI.left - ROI_TOLERANCE_X) &&
+      xNorm <= Math.min(1, ROI.right + ROI_TOLERANCE_X) &&
+      yNorm >= Math.max(0, ROI.top - ROI_TOLERANCE_Y) &&
+      yNorm <= Math.min(1, ROI.bottom + ROI_TOLERANCE_Y)
+    );
+  }
+
+  function distanciaDoCentro(bounds, width, height) {
+    const centro = centroDaDeteccao(bounds);
+    if (!centro || !width || !height) return Number.POSITIVE_INFINITY;
+
+    const xNorm = centro.x / width;
+    const yNorm = centro.y / height;
+
+    return Math.hypot(xNorm - 0.5, yNorm - 0.5);
+  }
+
+  function escolherMelhor(deteccoes, width, height) {
+    return (deteccoes || [])
+      .filter(function (d) {
+        return d &&
+          d.valor &&
+          dentroDaFaixa(d.bounds, width, height);
+      })
+      .sort(function (a, b) {
+        return distanciaDoCentro(a.bounds, width, height) -
+          distanciaDoCentro(b.bounds, width, height);
+      })[0] || null;
+  }
+
+  function prepararDecoders() {
+    let zbarOk = false;
+    let zxingOk = false;
+
+    try {
+      const api = window.barcodeDetectorPolyfill;
+
+      if (api && api.BarcodeDetectorPolyfill) {
+        zbarDetector = new api.BarcodeDetectorPolyfill({
+          formats: ZBAR_FORMATS.slice()
+        });
+        zbarOk = true;
+      }
+    } catch (e) {
+      console.warn('Falha ao inicializar ZBar-WASM.', e);
+      zbarDetector = null;
+    }
+
+    try {
+      if (
+        window.ZXingWASM &&
+        typeof window.ZXingWASM.prepareZXingModule === 'function' &&
+        typeof window.ZXingWASM.readBarcodes === 'function'
+      ) {
+        const preparado = window.ZXingWASM.prepareZXingModule({
+          overrides: {
+            locateFile: function (path, prefix) {
+              if (String(path).endsWith('.wasm')) {
+                return 'https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/reader/zxing_reader.wasm';
+              }
+              return String(prefix || '') + String(path || '');
+            }
+          },
+          fireImmediately: true
+        });
+
+        zxingReadyPromise = Promise.resolve(preparado).catch(function (erro) {
+          console.warn('Falha no pré-carregamento do ZXing-WASM.', erro);
+          return null;
+        });
+
+        zxingOk = true;
+      }
+    } catch (e) {
+      console.warn('Falha ao inicializar ZXing-WASM.', e);
+      zxingReadyPromise = null;
+    }
+
+    if (zbarOk && zxingOk) {
+      setMotor('Leitores: ZBar-WASM principal + ZXing-WASM fallback');
+    } else if (zbarOk) {
+      setMotor('Leitor: ZBar-WASM ativo · ZXing indisponível');
+    } else if (zxingOk) {
+      setMotor('Leitor: ZXing-WASM ativo · ZBar indisponível');
+    } else {
+      setMotor('Leitores WASM não carregaram.');
+    }
+
+    return zbarOk || zxingOk;
+  }
+
+  async function otimizarCamera() {
+    try {
+      const track = cameraStream &&
+        cameraStream.getVideoTracks &&
+        cameraStream.getVideoTracks()[0];
+
+      if (!track) return;
+
+      const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+
+      if (
+        Array.isArray(capabilities.focusMode) &&
+        capabilities.focusMode.includes('continuous')
+      ) {
+        await track.applyConstraints({
+          advanced: [
+            { focusMode: 'continuous' }
+          ]
+        });
+      }
+    } catch (e) {
+      console.warn('Foco contínuo não disponível.', e);
+    }
+  }
+
+  window.iniciarScanner = async function () {
+    if (scannerRodando) return;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      definirStatus('Este navegador não oferece acesso à câmera.', true, false);
+      return;
+    }
+
+    definirStatus('Solicitando acesso à câmera...', false, false);
+
+    try {
+      prepararDecoders();
+
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      });
+
+      video.srcObject = cameraStream;
+      await video.play();
+
+      await otimizarCamera();
+
+      scannerRodando = true;
+      scanAttempt = 0;
+      stableValue = '';
+      stableHits = 0;
+      stableLastAt = 0;
+
+      definirStatus(
+        'Câmera ativa. Centralize somente a etiqueta desejada na faixa amarela.',
+        false,
+        true
+      );
+
+      agendarLeitura(70);
+
+    } catch (erro) {
+      scannerRodando = false;
+
+      const nome = erro && erro.name ? erro.name : '';
+      const mensagem = erro && erro.message ? erro.message : String(erro || '');
+
+      if (nome === 'NotAllowedError' || mensagem.toLowerCase().includes('permission')) {
+        definirStatus(
+          'Permissão da câmera não foi concedida. Autorize a câmera para este site.',
+          true,
+          false
+        );
+      } else if (nome === 'NotFoundError') {
+        definirStatus('Nenhuma câmera foi encontrada neste aparelho.', true, false);
+      } else if (nome === 'NotReadableError') {
+        definirStatus('A câmera está ocupada por outro aplicativo.', true, false);
+      } else {
+        definirStatus('Não foi possível iniciar a câmera: ' + mensagem, true, false);
+      }
+    }
+  };
+
+  window.pararScanner = async function () {
+    scannerRodando = false;
+    scanBusy = false;
+
+    if (scanTimer) clearTimeout(scanTimer);
+    scanTimer = null;
+
+    if (cameraStream && cameraStream.getTracks) {
+      cameraStream.getTracks().forEach(function (track) {
+        try { track.stop(); } catch (e) {}
+      });
+    }
+
+    cameraStream = null;
+    video.srcObject = null;
+
+    definirStatus('Câmera parada.', false, false);
+  };
+
+  function agendarLeitura(atraso) {
+    if (!scannerRodando) return;
+
+    if (scanTimer) clearTimeout(scanTimer);
+
+    scanTimer = setTimeout(
+      lerFrame,
+      typeof atraso === 'number' ? atraso : SCAN_DELAY_MS
+    );
+  }
+
+  function desenharFrameInteiro() {
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    if (!vw || !vh || video.readyState < 2) return null;
+
+    const scale = Math.min(1, MAX_SCAN_WIDTH / vw);
+    const width = Math.max(1, Math.round(vw * scale));
+    const height = Math.max(1, Math.round(vh * scale));
+
+    if (scanCanvas.width !== width || scanCanvas.height !== height) {
+      scanCanvas.width = width;
+      scanCanvas.height = height;
+    }
+
+    /*
+     * Importante: usa o FRAME INTEIRO.
+     * Não há recorte por ROI antes do decoder.
+     */
+    scanContext.drawImage(
+      video,
+      0, 0, vw, vh,
+      0, 0, width, height
     );
 
-  }
-);
-
-
-/************************************************************
- * INICIAR
- ************************************************************/
-async function iniciarScanner() {
-
-  if (scannerRodando) {
-    return;
+    return { width: width, height: height };
   }
 
-  if (
-    typeof Html5Qrcode ===
-      'undefined'
-  ) {
-    definirStatus(
-      'A biblioteca do scanner não foi carregada.',
-      true
+  function prepararFrameInteiroReforcado(width, height) {
+    const scale = Math.min(1, ENHANCED_MAX_WIDTH / width);
+    const outWidth = Math.max(1, Math.round(width * scale));
+    const outHeight = Math.max(1, Math.round(height * scale));
+
+    if (
+      enhancedCanvas.width !== outWidth ||
+      enhancedCanvas.height !== outHeight
+    ) {
+      enhancedCanvas.width = outWidth;
+      enhancedCanvas.height = outHeight;
+    }
+
+    enhancedContext.imageSmoothingEnabled = false;
+
+    enhancedContext.drawImage(
+      scanCanvas,
+      0, 0, width, height,
+      0, 0, outWidth, outHeight
     );
 
-    return;
+    try {
+      const image = enhancedContext.getImageData(0, 0, outWidth, outHeight);
+      const data = image.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = Math.round(
+          data[i] * 0.299 +
+          data[i + 1] * 0.587 +
+          data[i + 2] * 0.114
+        );
+
+        const contrasted = Math.max(
+          0,
+          Math.min(
+            255,
+            Math.round(128 + (gray - 128) * 1.55)
+          )
+        );
+
+        data[i] = contrasted;
+        data[i + 1] = contrasted;
+        data[i + 2] = contrasted;
+      }
+
+      enhancedContext.putImageData(image, 0, 0);
+    } catch (e) {}
+
+    return {
+      width: outWidth,
+      height: outHeight,
+      scaleX: width / outWidth,
+      scaleY: height / outHeight
+    };
   }
 
-  definirStatus(
-    'Solicitando acesso à câmera...',
-    false
-  );
+  function mapearBoundsReforcado(bounds, info) {
+    if (!bounds || !info) return null;
 
-  try {
+    if (
+      Number.isFinite(Number(bounds.x)) &&
+      Number.isFinite(Number(bounds.y))
+    ) {
+      return {
+        x: Number(bounds.x) * info.scaleX,
+        y: Number(bounds.y) * info.scaleY,
+        width: Number(bounds.width || 0) * info.scaleX,
+        height: Number(bounds.height || 0) * info.scaleY
+      };
+    }
 
-    const formatos = [
-      Html5QrcodeSupportedFormats.QR_CODE,
+    return bounds;
+  }
 
-      Html5QrcodeSupportedFormats.CODABAR,
+  async function detectarZBar(width, height) {
+    if (!zbarDetector) return null;
 
-      Html5QrcodeSupportedFormats.CODE_39,
+    try {
+      const barcodes = await zbarDetector.detect(scanCanvas);
 
-      Html5QrcodeSupportedFormats.CODE_93,
+      const deteccoes = (barcodes || []).map(function (item) {
+        return {
+          valor: limparTexto(item.rawValue),
+          formato: item.format || 'ZBAR',
+          motor: 'ZBAR-WASM',
+          bounds: item.boundingBox ? {
+            x: Number(item.boundingBox.x),
+            y: Number(item.boundingBox.y),
+            width: Number(item.boundingBox.width),
+            height: Number(item.boundingBox.height)
+          } : null
+        };
+      });
 
-      Html5QrcodeSupportedFormats.CODE_128,
+      return escolherMelhor(deteccoes, width, height);
 
-      Html5QrcodeSupportedFormats.ITF,
+    } catch (e) {
+      console.warn('ZBar-WASM: falha temporária.', e);
+      return null;
+    }
+  }
 
-      Html5QrcodeSupportedFormats.EAN_13,
+  async function detectarZBarReforcado(width, height) {
+    if (!zbarDetector) return null;
 
-      Html5QrcodeSupportedFormats.EAN_8,
+    const info = prepararFrameInteiroReforcado(width, height);
 
-      Html5QrcodeSupportedFormats.UPC_A,
+    try {
+      const barcodes = await zbarDetector.detect(enhancedCanvas);
 
-      Html5QrcodeSupportedFormats.UPC_E
-    ];
+      const deteccoes = (barcodes || []).map(function (item) {
+        const bruto = item.boundingBox ? {
+          x: Number(item.boundingBox.x),
+          y: Number(item.boundingBox.y),
+          width: Number(item.boundingBox.width),
+          height: Number(item.boundingBox.height)
+        } : null;
 
+        return {
+          valor: limparTexto(item.rawValue),
+          formato: item.format || 'ZBAR',
+          motor: 'ZBAR-WASM REFORÇADO',
+          bounds: mapearBoundsReforcado(bruto, info)
+        };
+      });
 
-    leitor =
-      new Html5Qrcode(
-        'reader',
+      return escolherMelhor(deteccoes, width, height);
+
+    } catch (e) {
+      console.warn('ZBar-WASM reforçado: falha temporária.', e);
+      return null;
+    }
+  }
+
+  async function detectarZXing(width, height) {
+    if (
+      !window.ZXingWASM ||
+      typeof window.ZXingWASM.readBarcodes !== 'function'
+    ) {
+      return null;
+    }
+
+    try {
+      if (zxingReadyPromise) {
+        await zxingReadyPromise;
+      }
+
+      const imageData = scanContext.getImageData(0, 0, width, height);
+
+      const resultados = await window.ZXingWASM.readBarcodes(
+        imageData,
         {
-          formatsToSupport:
-            formatos,
-
-          /*
-           * Força o decodificador ZXing
-           * da biblioteca em vez de depender
-           * do BarcodeDetector nativo.
-           */
-          useBarCodeDetectorIfSupported:
-            false
+          formats: ZXING_FORMATS.slice(),
+          tryHarder: true,
+          tryRotate: true,
+          tryInvert: true,
+          tryDownscale: true,
+          tryDenoise: true,
+          maxNumberOfSymbols: 8,
+          returnErrors: false
         }
       );
 
+      const deteccoes = (resultados || [])
+        .filter(function (item) {
+          return item && item.isValid !== false && item.text;
+        })
+        .map(function (item) {
+          return {
+            valor: limparTexto(item.text),
+            formato: item.format || item.symbology || 'ZXING',
+            motor: 'ZXING-WASM',
+            bounds: item.position || null
+          };
+        });
 
-    await leitor.start(
-      {
-        facingMode:
-          'environment'
-      },
+      return escolherMelhor(deteccoes, width, height);
 
-      {
-        fps: 10,
+    } catch (e) {
+      console.warn('ZXing-WASM: falha temporária.', e);
+      return null;
+    }
+  }
 
-        /*
-         * Sem qrbox:
-         * usa uma área maior da câmera,
-         * ajudando tanto códigos 1D largos
-         * quanto QR Code.
-         */
-        disableFlip:
-          false
-      },
+  async function lerFrame() {
+    if (!scannerRodando || scanBusy) return;
 
-      function(
-        decodedText,
-        decodedResult
+    const frame = desenharFrameInteiro();
+
+    if (!frame) {
+      agendarLeitura(140);
+      return;
+    }
+
+    scanBusy = true;
+    scanAttempt += 1;
+
+    try {
+      let deteccao = await detectarZBar(frame.width, frame.height);
+
+      if (
+        !deteccao &&
+        scanAttempt % ENHANCED_ZBAR_EVERY === 0
       ) {
-        processarLeitura(
-          decodedText,
-          extrairFormatoHtml5(
-            decodedResult
-          ),
-          'HTML5-QR'
+        deteccao = await detectarZBarReforcado(
+          frame.width,
+          frame.height
         );
-      },
-
-      function(
-        errorMessage
-      ) {
-        /*
-         * É normal não encontrar código
-         * em vários quadros consecutivos.
-         * Não mostra erro na tela.
-         */
       }
+
+      if (
+        !deteccao &&
+        scanAttempt % ZXING_FALLBACK_EVERY === 0
+      ) {
+        deteccao = await detectarZXing(
+          frame.width,
+          frame.height
+        );
+      }
+
+      if (deteccao && scannerRodando) {
+        processarDeteccao(deteccao);
+      }
+
+    } finally {
+      scanBusy = false;
+      agendarLeitura();
+    }
+  }
+
+  function confirmarEstabilidade(codigo, formato) {
+    if (ehCodabar(formato)) {
+      return true;
+    }
+
+    const agora = Date.now();
+
+    if (
+      codigo === stableValue &&
+      agora - stableLastAt <= STABLE_WINDOW_MS
+    ) {
+      stableHits += 1;
+    } else {
+      stableValue = codigo;
+      stableHits = 1;
+    }
+
+    stableLastAt = agora;
+
+    if (stableHits >= STABLE_HITS_REQUIRED) {
+      stableHits = 0;
+      stableValue = '';
+      return true;
+    }
+
+    return false;
+  }
+
+  function processarDeteccao(deteccao) {
+    const codigo = normalizarPatrimonio(
+      deteccao.valor,
+      deteccao.formato
     );
 
+    if (!codigo) {
+      return;
+    }
 
-    scannerRodando =
-      true;
+    if (!confirmarEstabilidade(codigo, deteccao.formato)) {
+      return;
+    }
 
-    await otimizarCamera();
+    const agora = Date.now();
 
-    iniciarLeituraZBar();
+    if (
+      codigo === ultimoNormalizado &&
+      agora - ultimoHorario < ACCEPTED_CODE_COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    ultimoNormalizado = codigo;
+    ultimoHorario = agora;
+
+    if (lidos.has(codigo)) {
+      definirStatus(
+        'Patrimônio ' + codigo + ' já foi lido nesta sessão.',
+        false,
+        false
+      );
+      return;
+    }
+
+    lidos.add(codigo);
+
+    document.getElementById('quantidade').textContent =
+      String(lidos.size);
+
+    document.getElementById('ultimo').textContent =
+      codigo;
+
+    const item = document.createElement('div');
+    item.className = 'item';
+    item.textContent =
+      codigo +
+      ' · ' +
+      String(deteccao.formato || 'FORMATO') +
+      ' · ' +
+      String(deteccao.motor || 'LEITOR');
+
+    document.getElementById('lista').prepend(item);
 
     definirStatus(
-      'Câmera ativa com leitura reforçada. Aponte para o código.',
+      'Patrimônio ' +
+      codigo +
+      ' lido ✓ · ' +
+      String(deteccao.motor || ''),
       false,
       true
     );
 
-  } catch (erro) {
-
-    scannerRodando =
-      false;
-
-    leitor =
-      null;
-
-    const nome =
-      erro &&
-      erro.name
-        ? erro.name
-        : '';
-
-    const mensagem =
-      erro &&
-      erro.message
-        ? erro.message
-        : String(
-            erro || ''
-          );
-
-
-    if (
-      nome ===
-        'NotAllowedError' ||
-      mensagem
-        .toLowerCase()
-        .includes(
-          'permission'
-        )
-    ) {
-      definirStatus(
-        'Permissão da câmera não foi concedida. Deixe este site configurado como "Perguntar" e autorize quando abrir.',
-        true
-      );
-
-      return;
+    if (navigator.vibrate) {
+      navigator.vibrate(90);
     }
 
+    tocarBip();
 
-    if (
-      nome ===
-      'NotFoundError'
-    ) {
-      definirStatus(
-        'Nenhuma câmera foi encontrada neste aparelho.',
-        true
-      );
-
-      return;
-    }
-
-
-    if (
-      nome ===
-      'NotReadableError'
-    ) {
-      definirStatus(
-        'A câmera está ocupada por outro aplicativo.',
-        true
-      );
-
-      return;
-    }
-
-
-    definirStatus(
-      'Não foi possível iniciar a câmera: ' +
-      mensagem,
-      true
-    );
-  }
-}
-
-
-/************************************************************
- * PARAR
- ************************************************************/
-async function pararScanner() {
-
-  pararLeituraZBar();
-
-  if (
-    !leitor ||
-    !scannerRodando
-  ) {
-    return;
-  }
-
-  try {
-    await leitor.stop();
-  } catch (e) {}
-
-  try {
-    leitor.clear();
-  } catch (e) {}
-
-  scannerRodando =
-    false;
-
-  leitor =
-    null;
-
-  definirStatus(
-    'Câmera parada.',
-    false
-  );
-}
-
-
-/************************************************************
- * LEITURA REFORÇADA
- ************************************************************/
-function extrairFormatoHtml5(
-  decodedResult
-) {
-  const candidatos = [
-    decodedResult &&
-      decodedResult.result &&
-      decodedResult.result.format &&
-      decodedResult.result.format.formatName,
-
-    decodedResult &&
-      decodedResult.result &&
-      decodedResult.result.format &&
-      decodedResult.result.format.format,
-
-    decodedResult &&
-      decodedResult.format,
-
-    decodedResult &&
-      decodedResult.symbology
-  ];
-
-  for (
-    const valor
-    of candidatos
-  ) {
-    const texto =
-      String(
-        valor || ''
-      ).trim();
-
-    if (texto) {
-      return texto;
-    }
-  }
-
-  return '';
-}
-
-
-function obterVideoAtivo() {
-  return document.querySelector(
-    '#reader video'
-  );
-}
-
-
-async function otimizarCamera() {
-  const video =
-    obterVideoAtivo();
-
-  const track =
-    video &&
-    video.srcObject &&
-    video.srcObject
-      .getVideoTracks
-      ? video.srcObject
-          .getVideoTracks()[0]
-      : null;
-
-  if (!track) {
-    return;
-  }
-
-  /*
-   * Tenta usar uma resolução alta.
-   * Se o aparelho não aceitar, simplesmente
-   * mantém a configuração escolhida pelo navegador.
-   */
-  try {
-    await track.applyConstraints({
-      width: {
-        ideal: 1920
-      },
-
-      height: {
-        ideal: 1080
-      }
-    });
-  } catch (e) {}
-
-
-  /*
-   * Mantém foco contínuo quando a câmera oferece
-   * esse recurso. Ajuda especialmente em etiquetas
-   * pequenas e códigos com barras finas.
-   */
-  try {
-    const capabilities =
-      track.getCapabilities
-        ? track.getCapabilities()
-        : {};
-
-    if (
-      Array.isArray(
-        capabilities.focusMode
-      ) &&
-      capabilities.focusMode.includes(
-        'continuous'
-      )
-    ) {
-      await track.applyConstraints({
-        advanced: [
+    if (window.opener && returnOrigin) {
+      try {
+        window.opener.postMessage(
           {
-            focusMode:
-              'continuous'
-          }
-        ]
-      });
-    }
-  } catch (e) {}
-}
-
-
-function inicializarZBar() {
-  if (zbarDetector) {
-    return true;
-  }
-
-  try {
-    const api =
-      window
-        .barcodeDetectorPolyfill;
-
-    if (
-      !api ||
-      !api.BarcodeDetectorPolyfill
-    ) {
-      return false;
-    }
-
-    zbarDetector =
-      new api.BarcodeDetectorPolyfill({
-        formats: [
-          'codabar',
-          'code_39',
-          'code_93',
-          'code_128',
-          'databar',
-          'databar_exp',
-          'ean_8',
-          'ean_13',
-          'itf',
-          'qr_code',
-          'upc_a',
-          'upc_e'
-        ]
-      });
-
-    return true;
-
-  } catch (e) {
-    zbarDetector =
-      null;
-
-    return false;
-  }
-}
-
-
-function iniciarLeituraZBar() {
-  pararLeituraZBar();
-
-  if (
-    !scannerRodando ||
-    !inicializarZBar()
-  ) {
-    return;
-  }
-
-  agendarZBar(
-    120
-  );
-}
-
-
-function pararLeituraZBar() {
-  if (zbarTimer) {
-    clearTimeout(
-      zbarTimer
-    );
-  }
-
-  zbarTimer =
-    null;
-
-  zbarBusy =
-    false;
-}
-
-
-function agendarZBar(
-  atraso
-) {
-  if (
-    !scannerRodando ||
-    !zbarDetector
-  ) {
-    return;
-  }
-
-  if (zbarTimer) {
-    clearTimeout(
-      zbarTimer
-    );
-  }
-
-  zbarTimer =
-    setTimeout(
-      cicloZBar,
-      atraso || 170
-    );
-}
-
-
-function normalizarFormato(
-  formato
-) {
-  return String(
-    formato || ''
-  )
-    .trim()
-    .toUpperCase()
-    .replace(
-      /[^A-Z0-9]/g,
-      ''
-    );
-}
-
-
-function ehCodabar(
-  formato
-) {
-  return normalizarFormato(
-    formato
-  ).includes(
-    'CODABAR'
-  );
-}
-
-
-function normalizarPatrimonioLido(
-  valor,
-  formato
-) {
-  const bruto =
-    String(
-      valor || ''
-    )
-      .replace(
-        /[\u0000-\u001F\u007F]/g,
-        ''
-      )
-      .trim()
-      .toUpperCase();
-
-  if (!bruto) {
-    return '';
-  }
-
-  /*
-   * CODABAR usa A/B/C/D como caracteres
-   * técnicos de início e fim.
-   *
-   * Exemplo:
-   * A16025360A -> 16025360
-   *
-   * Também reconhecemos esse padrão quando
-   * o leitor não informa a simbologia, mas
-   * somente se o conteúdo interno for numérico
-   * com pontuação válida de CODABAR.
-   */
-  const pareceCodabarComGuardas =
-    /^[ABCD][0-9 .:+\/$-]+[ABCD]$/
-      .test(
-        bruto
-      );
-
-  if (
-    ehCodabar(
-      formato
-    ) ||
-    pareceCodabarComGuardas
-  ) {
-    const semGuardas =
-      bruto
-        .replace(
-          /^[ABCD]/,
-          ''
-        )
-        .replace(
-          /[ABCD]$/,
-          ''
+            tipo: 'ACADEPOL_PATRIMONIO',
+            valor: codigo
+          },
+          returnOrigin
         );
-
-    if (
-      !/^[0-9 .:+\/$-]+$/
-        .test(
-          semGuardas
-        )
-    ) {
-      return '';
-    }
-
-    const digitos =
-      semGuardas.replace(
-        /\D/g,
-        ''
-      );
-
-    return digitos.length >= 6
-      ? digitos
-      : '';
-  }
-
-  /*
-   * Demais formatos continuam em modo seguro:
-   * só números, ponto, hífen e espaços.
-   * Não converte letras em números e não
-   * extrai patrimônio de URL ou texto livre.
-   */
-  if (
-    !/^[0-9.\-\s]+$/
-      .test(
-        bruto
-      )
-  ) {
-    return '';
-  }
-
-  return bruto.replace(
-    /\D/g,
-    ''
-  );
-}
-
-
-function escolherMelhorZBar(
-  resultados
-) {
-  const validos =
-    (resultados || [])
-      .filter(
-        function(item) {
-          return (
-            item &&
-            normalizarPatrimonioLido(
-              item.rawValue,
-              item.format
-            )
-          );
-        }
-      );
-
-  if (!validos.length) {
-    return null;
-  }
-
-  /*
-   * Se houver mais de um código visível,
-   * prioriza o que ocupa maior área na imagem.
-   */
-  validos.sort(
-    function(a, b) {
-      const aa =
-        a.boundingBox
-          ? Number(
-              a.boundingBox.width || 0
-            ) *
-            Number(
-              a.boundingBox.height || 0
-            )
-          : 0;
-
-      const bb =
-        b.boundingBox
-          ? Number(
-              b.boundingBox.width || 0
-            ) *
-            Number(
-              b.boundingBox.height || 0
-            )
-          : 0;
-
-      return bb - aa;
-    }
-  );
-
-  return validos[0];
-}
-
-
-function prepararImagemReforcada(
-  video
-) {
-  if (
-    !video ||
-    !video.videoWidth ||
-    !video.videoHeight ||
-    !zbarContext
-  ) {
-    return false;
-  }
-
-  const larguraOriginal =
-    video.videoWidth;
-
-  const alturaOriginal =
-    video.videoHeight;
-
-  const escala =
-    Math.min(
-      2,
-      1440 /
-        larguraOriginal
-    );
-
-  const largura =
-    Math.max(
-      1,
-      Math.round(
-        larguraOriginal *
-        escala
-      )
-    );
-
-  const altura =
-    Math.max(
-      1,
-      Math.round(
-        alturaOriginal *
-        escala
-      )
-    );
-
-  if (
-    zbarCanvas.width !==
-      largura ||
-    zbarCanvas.height !==
-      altura
-  ) {
-    zbarCanvas.width =
-      largura;
-
-    zbarCanvas.height =
-      altura;
-  }
-
-  zbarContext
-    .drawImage(
-      video,
-      0,
-      0,
-      larguraOriginal,
-      alturaOriginal,
-      0,
-      0,
-      largura,
-      altura
-    );
-
-  /*
-   * Escala de cinza + contraste moderado.
-   * É usado somente como segunda tentativa,
-   * principalmente para etiquetas gastas.
-   */
-  try {
-    const imagem =
-      zbarContext
-        .getImageData(
-          0,
-          0,
-          largura,
-          altura
-        );
-
-    const dados =
-      imagem.data;
-
-    for (
-      let i = 0;
-      i < dados.length;
-      i += 4
-    ) {
-      const cinza =
-        Math.round(
-          dados[i] *
-            0.299 +
-          dados[i + 1] *
-            0.587 +
-          dados[i + 2] *
-            0.114
-        );
-
-      const contraste =
-        Math.max(
-          0,
-          Math.min(
-            255,
-            Math.round(
-              128 +
-              (
-                cinza -
-                128
-              ) *
-              1.55
-            )
-          )
-        );
-
-      dados[i] =
-        contraste;
-
-      dados[i + 1] =
-        contraste;
-
-      dados[i + 2] =
-        contraste;
-    }
-
-    zbarContext
-      .putImageData(
-        imagem,
-        0,
-        0
-      );
-
-  } catch (e) {}
-
-  return true;
-}
-
-
-async function cicloZBar() {
-  if (
-    !scannerRodando ||
-    !zbarDetector ||
-    zbarBusy
-  ) {
-    agendarZBar(
-      180
-    );
-
-    return;
-  }
-
-  const video =
-    obterVideoAtivo();
-
-  if (
-    !video ||
-    video.readyState < 2
-  ) {
-    agendarZBar(
-      180
-    );
-
-    return;
-  }
-
-  zbarBusy =
-    true;
-
-  zbarTentativa +=
-    1;
-
-  try {
-    let resultados =
-      [];
-
-    try {
-      resultados =
-        await zbarDetector
-          .detect(
-            video
-          );
-    } catch (e) {}
-
-    let melhor =
-      escolherMelhorZBar(
-        resultados
-      );
-
-    /*
-     * A cada 3 tentativas sem leitura,
-     * faz uma segunda passagem com
-     * contraste reforçado.
-     */
-    if (
-      !melhor &&
-      zbarTentativa % 3 === 0 &&
-      prepararImagemReforcada(
-        video
-      )
-    ) {
-      try {
-        resultados =
-          await zbarDetector
-            .detect(
-              zbarCanvas
-            );
-      } catch (e) {
-        resultados =
-          [];
-      }
-
-      melhor =
-        escolherMelhorZBar(
-          resultados
-        );
-    }
-
-    if (
-      melhor &&
-      scannerRodando
-    ) {
-      processarLeitura(
-        melhor.rawValue,
-        melhor.format,
-        'ZBAR-WASM'
-      );
-    }
-
-  } finally {
-    zbarBusy =
-      false;
-
-    agendarZBar(
-      170
-    );
-  }
-}
-
-
-/************************************************************
- * LEITURA
- ************************************************************/
-function processarLeitura(
-  valor,
-  formato,
-  motor
-) {
-  const texto =
-    String(
-      valor || ''
-    ).trim();
-
-  if (!texto) {
-    return;
-  }
-
-  const normalizado =
-    normalizarPatrimonioLido(
-      texto,
-      formato
-    );
-
-  if (!normalizado) {
-    definirStatus(
-      'Código lido, mas o conteúdo não é um patrimônio válido: ' +
-      texto,
-      true
-    );
-
-    return;
-  }
-
-  const agora =
-    Date.now();
-
-  /*
-   * Evita que o mesmo código seja
-   * disparado dezenas de vezes enquanto
-   * a câmera continua apontada para ele.
-   */
-  if (
-    normalizado ===
-      ultimoNormalizado &&
-    agora -
-      ultimoHorario <
-      2500
-  ) {
-    return;
-  }
-
-  ultimoNormalizado =
-    normalizado;
-
-  ultimoHorario =
-    agora;
-
-
-  if (
-    lidos.has(
-      normalizado
-    )
-  ) {
-    definirStatus(
-      'Patrimônio ' +
-      normalizado +
-      ' já foi lido nesta sessão.',
-      false
-    );
-
-    return;
-  }
-
-
-  lidos.add(
-    normalizado
-  );
-
-
-  document
-    .getElementById(
-      'quantidade'
-    )
-    .textContent =
-      String(
-        lidos.size
-      );
-
-
-  document
-    .getElementById(
-      'ultimo'
-    )
-    .textContent =
-      normalizado;
-
-
-  const item =
-    document.createElement(
-      'div'
-    );
-
-  item.className =
-    'item';
-
-  item.textContent =
-    normalizado;
-
-  document
-    .getElementById(
-      'lista'
-    )
-    .prepend(item);
-
-
-  definirStatus(
-    'Patrimônio ' +
-    normalizado +
-    ' lido ✓' +
-    (
-      motor
-        ? ' · ' + motor
-        : ''
-    ),
-    false,
-    true
-  );
-
-
-  if (
-    navigator.vibrate
-  ) {
-    navigator.vibrate(
-      90
-    );
-  }
-
-
-  tocarBip();
-
-
-  /*
-   * Envia automaticamente
-   * para a janela Consulta Patrimonial.
-   */
-  if (
-    window.opener &&
-    returnOrigin
-  ) {
-    try {
-
-      window.opener.postMessage(
-        {
-          tipo:
-            'ACADEPOL_PATRIMONIO',
-
-          valor:
-            normalizado
-        },
-        returnOrigin
-      );
-
-    } catch (e) {}
-  }
-}
-
-
-/************************************************************
- * BIP
- ************************************************************/
-function tocarBip() {
-
-  try {
-
-    const AudioContext =
-      window.AudioContext ||
-      window.webkitAudioContext;
-
-    if (!AudioContext) {
-      return;
-    }
-
-    const contexto =
-      new AudioContext();
-
-    const oscilador =
-      contexto.createOscillator();
-
-    const ganho =
-      contexto.createGain();
-
-    oscilador
-      .connect(
-        ganho
-      );
-
-    ganho
-      .connect(
-        contexto.destination
-      );
-
-    oscilador.frequency.value =
-      900;
-
-    ganho.gain.value =
-      0.05;
-
-    oscilador.start();
-
-    oscilador.stop(
-      contexto.currentTime +
-      0.08
-    );
-
-  } catch (e) {}
-}
-
-
-/************************************************************
- * STATUS
- ************************************************************/
-function definirStatus(
-  texto,
-  erro,
-  sucesso
-) {
-  const el =
-    document.getElementById(
-      'status'
-    );
-
-  el.textContent =
-    texto;
-
-  el.className =
-    'status';
-
-  if (erro) {
-    el.classList.add(
-      'erro'
-    );
-
-  } else if (sucesso) {
-    el.classList.add(
-      'ok'
-    );
-  }
-}
-
-
-/************************************************************
- * ENCERRAR
- ************************************************************/
-window.addEventListener(
-  'beforeunload',
-  function() {
-
-    pararLeituraZBar();
-
-    if (
-      leitor &&
-      scannerRodando
-    ) {
-      try {
-        leitor.stop();
       } catch (e) {}
     }
-
   }
-);
 
+  function tocarBip() {
+    try {
+      const AudioContext =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if (!AudioContext) return;
+
+      const contexto = new AudioContext();
+      const oscilador = contexto.createOscillator();
+      const ganho = contexto.createGain();
+
+      oscilador.connect(ganho);
+      ganho.connect(contexto.destination);
+
+      oscilador.frequency.value = 900;
+      ganho.gain.value = 0.05;
+
+      oscilador.start();
+      oscilador.stop(contexto.currentTime + 0.08);
+    } catch (e) {}
+  }
+
+  window.addEventListener('load', function () {
+    const parametros = new URLSearchParams(window.location.search);
+
+    returnOrigin = String(
+      parametros.get('returnOrigin') || ''
+    ).trim();
+
+    prepararDecoders();
+
+    setTimeout(function () {
+      window.iniciarScanner();
+    }, 300);
+  });
+
+  window.addEventListener('beforeunload', function () {
+    try {
+      window.pararScanner();
+    } catch (e) {}
+  });
+})();
 </script>
-
 </body>
-
 </html>
