@@ -190,10 +190,178 @@
     .item { padding:9px 6px; border-bottom:1px solid #272a30; font-size:13px; }
     .ajuda { color:var(--texto2); font-size:12px; line-height:1.5; }
     .motor { color:#7f838c; font-size:10px; margin-top:5px; }
-    @media (max-width:500px) {
-      main { padding:10px; }
-      button { flex:1 1 100%; }
-      .camera-wrap { min-height:220px; }
+
+    .duplicate-alert {
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:22px;
+      background:rgba(0,0,0,.58);
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+      transition:opacity .15s ease, visibility .15s ease;
+    }
+    .duplicate-alert.show {
+      opacity:1;
+      visibility:visible;
+    }
+    .duplicate-card {
+      width:min(92vw, 420px);
+      padding:22px 18px;
+      border:2px solid #ff6b64;
+      border-radius:18px;
+      background:#321313;
+      box-shadow:0 16px 50px rgba(0,0,0,.55);
+      text-align:center;
+    }
+    .duplicate-title {
+      color:#ffb0ab;
+      font-size:25px;
+      font-weight:900;
+      letter-spacing:.5px;
+    }
+    .duplicate-code {
+      margin-top:10px;
+      color:#fff;
+      font-size:32px;
+      line-height:1.1;
+      font-weight:900;
+      word-break:break-all;
+    }
+    .duplicate-text {
+      margin-top:9px;
+      color:#ffd4d1;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    @media (max-width:600px) {
+      html, body {
+        height:100%;
+        overflow:hidden;
+      }
+      body {
+        height:100dvh;
+        display:flex;
+        flex-direction:column;
+      }
+      header {
+        flex:0 0 auto;
+        padding:9px 12px;
+      }
+      .titulo {
+        font-size:17px;
+      }
+      .subtitulo {
+        font-size:10px;
+        margin-top:2px;
+      }
+      main {
+        flex:1 1 auto;
+        min-height:0;
+        width:100%;
+        padding:7px;
+        overflow:hidden;
+        display:grid;
+        grid-template-rows:minmax(0, 1fr) auto auto;
+        gap:7px;
+      }
+      .painel {
+        padding:8px;
+        margin:0;
+        border-radius:12px;
+      }
+      .painel-camera {
+        min-height:0;
+        display:flex;
+        flex-direction:column;
+      }
+      .status {
+        flex:0 0 auto;
+        padding:7px 9px;
+        margin-bottom:7px;
+        font-size:11px;
+        line-height:1.25;
+      }
+      .camera-wrap {
+        flex:1 1 auto;
+        min-height:0;
+        border-radius:10px;
+      }
+      #video {
+        width:100%;
+        height:100%;
+        max-height:none;
+        object-fit:cover;
+      }
+      .scan-label {
+        top:-23px;
+        font-size:9px;
+        padding:3px 6px;
+      }
+      .botoes {
+        flex:0 0 auto;
+        margin-top:7px;
+        gap:6px;
+      }
+      button {
+        min-height:38px;
+        font-size:12px;
+      }
+      .contador {
+        gap:7px;
+        margin-bottom:4px;
+      }
+      .card {
+        padding:7px 9px;
+      }
+      .cardTitulo {
+        font-size:9px;
+      }
+      .cardValor {
+        font-size:19px;
+        margin-top:2px;
+      }
+      .ajuda {
+        display:none;
+      }
+      .motor {
+        margin-top:4px;
+        font-size:8.5px;
+        line-height:1.15;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+      .lista {
+        display:none;
+      }
+      .concluir-wrap {
+        position:static;
+        padding:0 0 max(2px, env(safe-area-inset-bottom));
+        background:none;
+      }
+      .concluir-btn {
+        min-height:45px;
+        font-size:13px;
+        border-radius:11px;
+      }
+      .concluir-info {
+        display:none;
+      }
+      .duplicate-card {
+        padding:20px 16px;
+      }
+      .duplicate-title {
+        font-size:24px;
+      }
+      .duplicate-code {
+        font-size:30px;
+      }
     }
   </style>
 </head>
@@ -206,7 +374,7 @@
 </header>
 
 <main>
-  <section class="painel">
+  <section class="painel painel-camera">
     <div id="status" class="status">Preparando câmera...</div>
 
     <div class="camera-wrap">
@@ -220,11 +388,11 @@
 
     <div class="botoes">
       <button id="btnIniciar" class="principal" onclick="iniciarScanner()">INICIAR CÂMERA</button>
-      <button id="btnParar" class="secundario" onclick="pararScanner()">PAUSAR CÂMERA</button>
+      <button id="btnParar" class="secundario" onclick="pararScanner()" hidden>PAUSAR CÂMERA</button>
     </div>
   </section>
 
-  <section class="painel">
+  <section class="painel painel-info">
     <div class="contador">
       <div class="card">
         <div class="cardTitulo">LIDOS</div>
@@ -259,6 +427,14 @@
     </div>
   </div>
 </main>
+
+<div id="duplicateAlert" class="duplicate-alert" aria-live="assertive">
+  <div class="duplicate-card">
+    <div class="duplicate-title">⚠ JÁ LIDO</div>
+    <div id="duplicateCode" class="duplicate-code">-</div>
+    <div class="duplicate-text">Este patrimônio já está nesta leitura.</div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -323,6 +499,10 @@
   let stableHits = 0;
   let stableLastAt = 0;
 
+  let duplicateAlertTimer = null;
+  let lastDuplicateAlertCode = '';
+  let lastDuplicateAlertAt = 0;
+
   const lidos = new Set();
 
   const video = document.getElementById('video');
@@ -346,6 +526,83 @@
 
   function setMotor(texto) {
     document.getElementById('motor').textContent = texto;
+  }
+
+  function atualizarBotoesCamera() {
+    const iniciar = document.getElementById('btnIniciar');
+    const pausar = document.getElementById('btnParar');
+
+    if (iniciar) iniciar.hidden = scannerRodando;
+    if (pausar) pausar.hidden = !scannerRodando;
+  }
+
+  function tocarAlertaDuplicado() {
+    try {
+      const AudioContext =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if (!AudioContext) return;
+
+      const contexto = new AudioContext();
+
+      [0, 0.15].forEach(function (atraso, indice) {
+        const osc = contexto.createOscillator();
+        const ganho = contexto.createGain();
+
+        osc.frequency.value = indice === 0 ? 260 : 190;
+        ganho.gain.value = 0.07;
+
+        osc.connect(ganho);
+        ganho.connect(contexto.destination);
+
+        osc.start(contexto.currentTime + atraso);
+        osc.stop(contexto.currentTime + atraso + 0.11);
+      });
+    } catch (e) {}
+  }
+
+  function mostrarDuplicado(codigo) {
+    const agora = Date.now();
+
+    if (
+      codigo === lastDuplicateAlertCode &&
+      agora - lastDuplicateAlertAt < 2500
+    ) {
+      return;
+    }
+
+    lastDuplicateAlertCode = codigo;
+    lastDuplicateAlertAt = agora;
+
+    const alerta = document.getElementById('duplicateAlert');
+    const campo = document.getElementById('duplicateCode');
+
+    if (campo) campo.textContent = codigo;
+
+    if (alerta) {
+      alerta.classList.add('show');
+
+      if (duplicateAlertTimer) {
+        clearTimeout(duplicateAlertTimer);
+      }
+
+      duplicateAlertTimer = setTimeout(function () {
+        alerta.classList.remove('show');
+      }, 1700);
+    }
+
+    definirStatus(
+      'ATENÇÃO: patrimônio ' + codigo + ' já foi lido.',
+      true,
+      false
+    );
+
+    if (navigator.vibrate) {
+      navigator.vibrate([180, 80, 180]);
+    }
+
+    tocarAlertaDuplicado();
   }
 
   function limparTexto(valor) {
@@ -584,6 +841,7 @@
       await otimizarCamera();
 
       scannerRodando = true;
+      atualizarBotoesCamera();
       scanAttempt = 0;
       stableValue = '';
       stableHits = 0;
@@ -634,6 +892,7 @@
 
     cameraStream = null;
     video.srcObject = null;
+    atualizarBotoesCamera();
 
     if (!silencioso) {
       definirStatus('Câmera pausada.', false, false);
@@ -1034,6 +1293,11 @@
 
     const agora = Date.now();
 
+    if (lidos.has(codigo)) {
+      mostrarDuplicado(codigo);
+      return;
+    }
+
     if (
       codigo === ultimoNormalizado &&
       agora - ultimoHorario < ACCEPTED_CODE_COOLDOWN_MS
@@ -1043,15 +1307,6 @@
 
     ultimoNormalizado = codigo;
     ultimoHorario = agora;
-
-    if (lidos.has(codigo)) {
-      definirStatus(
-        'Patrimônio ' + codigo + ' já foi lido nesta sessão.',
-        false,
-        false
-      );
-      return;
-    }
 
     lidos.add(codigo);
 
@@ -1141,6 +1396,7 @@
     ).trim();
 
     prepararDecoders();
+    atualizarBotoesCamera();
 
     setTimeout(function () {
       window.iniciarScanner();
