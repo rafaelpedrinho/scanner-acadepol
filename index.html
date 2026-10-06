@@ -88,8 +88,8 @@
       position:absolute;
       left:8%;
       right:8%;
-      top:38%;
-      height:24%;
+      top:34%;
+      height:32%;
       border:2px solid var(--amarelo);
       border-radius:12px;
       pointer-events:none;
@@ -452,24 +452,29 @@
 (function () {
   'use strict';
 
+  /*
+   * Parâmetros restaurados do scanner V8.1 que teve melhor leitura:
+   * faixa central um pouco mais tolerante e janela de estabilidade maior.
+   * O frame continua sendo analisado inteiro.
+   */
   const ROI = Object.freeze({
-    left: 0.08,
-    right: 0.92,
-    top: 0.38,
-    bottom: 0.62
+    left: 0.06,
+    right: 0.94,
+    top: 0.34,
+    bottom: 0.66
   });
 
   const ROI_TOLERANCE_X = 0.015;
-  const ROI_TOLERANCE_Y = 0.03;
+  const ROI_TOLERANCE_Y = 0.05;
 
-  const SCAN_DELAY_MS = 90;
-  const STABLE_WINDOW_MS = 700;
+  const SCAN_DELAY_MS = 85;
+  const STABLE_WINDOW_MS = 900;
   const STABLE_HITS_REQUIRED = 2;
   const CODABAR_HITS_REQUIRED = 1;
   const ACCEPTED_CODE_COOLDOWN_MS = 2200;
 
-  const ZXING_FALLBACK_EVERY = 3;
-  const ENHANCED_ZBAR_EVERY = 4;
+  const ZXING_FALLBACK_EVERY = 4;
+  const ENHANCED_ZBAR_EVERY = 3;
 
   const MAX_SCAN_WIDTH = 1920;
   const ENHANCED_MAX_WIDTH = 1440;
